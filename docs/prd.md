@@ -165,7 +165,7 @@ Explicitly out of scope for the product as currently conceived (not merely "not 
 **Assumptions (recorded, not yet re-verified with the user):**
 - A1: "Target project" always has a runnable `promptfoo` (local dependency or global) and the provider CLIs its configs reference, as stated in the README setup section — the UI does not check or install these.
 - A2: `PROJECT_ROOT` is trusted input (an env var Calvin sets himself); the sandboxing in `resolveRepoPath` protects against accidental path bugs within the app, not against a malicious `PROJECT_ROOT` value or a malicious config file.
-- A3: The 5-runner catalog (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) is treated as effectively fixed/hardcoded for the v0.2.0 era; adding a 6th provider is a code change, not a config-driven extension point.
+- A3: ~~The 5-runner catalog (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) is treated as effectively fixed/hardcoded for the v0.2.0 era; adding a 6th provider is a code change, not a config-driven extension point.~~ **Superseded in v0.3.0** by the `add-sidebar-and-settings` change: the model catalog is now CLI runners **plus** key-gated direct API providers (Anthropic/OpenAI/Google). Both catalogs remain code-defined; extending either is still a code change. See §11.
 - A4: "Local-first" and "no auth" are permanent product stances tied to the single-user assumption, not temporary gaps — see Non-goals §7.
 
 **Open questions (need a decision before being treated as settled):**
@@ -186,3 +186,11 @@ Applied per requirement above:
 - **Traceable** — every ID (FR-N, NFR-N, UJ-N, SM-N, OQ-N) is stable and grounded in a cited file/behavior, ready for future feature specs to reference (e.g., "extends FR-11" or "supersedes NFR-5's round-trip limitation").
 
 Two items fell short of full DoR and are surfaced rather than silently resolved: **OQ-1** (maxTokens enforcement — behavior is ambiguous by design, not by omission of this document) and **OQ-4** (scan/access-list asymmetry — behavior is verifiable but intent is unknown). Both are recorded above rather than guessed at.
+
+## 11. Applied deltas
+
+Changes shipped after this baseline, in OpenSpec form under `openspec/changes/`; requirement-level effects are summarized here so IDs stay resolvable.
+
+| Version | Change | Requirement effects |
+|---|---|---|
+| v0.3.0 | `add-sidebar-and-settings` | **Supersedes A3** (catalog = CLI runners + key-gated API providers). **Extends FR-10** (builder model grid gains an API-providers group and API judges). **Extends FR-16** (run spawn env includes configured API keys as `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`/`GOOGLE_API_KEY`). **Adds** sidebar navigation (replaces the top nav), a `/settings` page, and app-level key storage (`~/.ai-toolkit-ui/settings.json`, 0600, masked reads — see ADR-0009). New capability specs: `sidebar-navigation`, `app-settings`, `direct-api-providers`. |

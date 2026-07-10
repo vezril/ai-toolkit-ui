@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-10
+
+### Added
+
+- **Sidebar navigation**: persistent left sidebar hosting all tools (Dashboard, New
+  evaluation, Runs) with active-tool highlighting and a Settings entry pinned at the
+  bottom; collapses to an icon rail below 900px. Replaces the top nav.
+- **Settings page** (`/settings`): manage provider API keys (Anthropic, OpenAI, Google) —
+  add, replace, remove. Keys are stored in `~/.ai-toolkit-ui/settings.json` (owner-only
+  `0600` permissions, outside any git repo) and are always masked after save.
+- **Direct API providers**: the eval builder's model grid gains an API-providers group
+  (`anthropic:*`, `openai:*`, `google:*`) alongside the CLI runners, with the same
+  toggle/model/max-tokens controls and judge support. API entries are gated on a
+  configured key (client-side and server-side), and configured keys are injected into
+  spawned `promptfoo eval` runs as conventional environment variables — never written
+  to YAML, logs, or run artifacts.
+
+### Changed
+
+- PRD assumption A3 superseded: the model catalog is now CLI runners + key-gated API
+  providers (see `docs/prd.md` §11 and ADR-0009).
+
 ## [0.2.0] - 2026-07-10
 
 ### Added
@@ -39,5 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.3.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vezril/ai-toolkit-ui/releases/tag/v0.1.0

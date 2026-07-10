@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import { REPO_ROOT } from './paths';
+import { API_PROVIDERS, apiProviderByKey, hasApiKey } from './settings';
 
 /**
  * The eval builder: a form-friendly draft model that serializes to a promptfoo
@@ -67,6 +68,25 @@ export function listRunners(): RunnerInfo[] {
   }));
 }
 
+export interface ApiProviderOption {
+  key: string;
+  label: string;
+  models: string[];
+  keyConfigured: boolean;
+}
+
+/** Direct API providers offered in the builder, gated on a stored key. */
+export function listApiProviders(): ApiProviderOption[] {
+  return API_PROVIDERS.map((p) => ({
+    key: p.key,
+    label: p.label,
+    models: p.models,
+    keyConfigured: hasApiKey(p.key),
+  }));
+}
+
+const API_PROVIDER_ID = new RegExp(`^(${API_PROVIDERS.map((p) => p.key).join('|')}):(.+)$`);
+
 export type CheckDraft =
   | { kind: 'contains'; text: string; ignoreCase: boolean }
   | { kind: 'rubric'; criterion: string; metric?: string; threshold: number; weight: number };
@@ -78,7 +98,8 @@ export interface TestDraft {
 }
 
 export interface ModelDraft {
-  runner: string; // RunnerInfo.key
+  runner: string; // RunnerInfo.key (kind 'cli') or ApiProviderInfo.key (kind 'api')
+  kind?: 'cli' | 'api'; // absent means 'cli' (pre-0.3.0 drafts)
   model: string;
   maxTokens?: number;
   enabled: boolean;
@@ -89,8 +110,12 @@ export interface EvalDraft {
   configPath?: string; // set when editing an existing eval
   prompt: string;
   models: ModelDraft[];
-  judge: string; // RunnerInfo.key that grades AI-judge checks
+  judge: string; // CLI runner key or API provider key that grades AI-judge checks
   tests: TestDraft[];
+}
+
+function modelKind(m: ModelDraft): 'cli' | 'api' {
+  return m.kind ?? 'cli';
 }
 
 function runnerByKey(key: string): Omit<RunnerInfo, 'available'> {
@@ -119,6 +144,12 @@ export function validateDraft(draft: EvalDraft): string[] {
   if (!draft.prompt?.trim()) problems.push('Write the prompt you want to evaluate.');
   if (!draft.models?.some((m) => m.enabled)) problems.push('Turn on at least one model.');
   if (!draft.tests?.length) problems.push('Add at least one test case.');
+  for (const m of draft.models ?? []) {
+    if (m.enabled && modelKind(m) === 'api' && !hasApiKey(m.runner)) {
+      const label = apiProviderByKey(m.runner)?.label ?? m.runner;
+      problems.push(`No ${label} API key is configured — add one in Settings first.`);
+    }
+  }
   draft.tests?.forEach((t, i) => {
     if (!t.request?.trim()) problems.push(`Test ${i + 1}: fill in the example input.`);
     if (!t.checks?.length) problems.push(`Test ${i + 1}: add at least one check.`);
@@ -131,6 +162,10 @@ export function validateDraft(draft: EvalDraft): string[] {
   });
   const usesRubric = draft.tests?.some((t) => t.checks?.some((c) => c.kind === 'rubric'));
   if (usesRubric && !draft.judge) problems.push('Pick a judge model for the AI-judge checks.');
+  if (usesRubric && draft.judge && apiProviderByKey(draft.judge) && !hasApiKey(draft.judge)) {
+    const label = apiProviderByKey(draft.judge)!.label;
+    problems.push(`The judge needs a ${label} API key — add one in Settings first.`);
+  }
   return problems;
 }
 
@@ -190,6 +225,18 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
   const providers = draft.models
     .filter((m) => m.enabled)
     .map((m) => {
+      if (modelKind(m) === 'api') {
+        const api = apiProviderByKey(m.runner);
+        if (!api) throw new Error(`Unknown API provider: ${m.runner}`);
+        const model = m.model || api.models[0];
+        const entry: Record<string, unknown> = {
+          id: `${api.key}:${model}`,
+          label: `${api.label} (${model})`,
+        };
+        // promptfoo API providers use max_tokens; keys come from env, never YAML.
+        if (m.maxTokens) entry.config = { max_tokens: m.maxTokens };
+        return entry;
+      }
       const runner = runnerByKey(m.runner);
       const config: Record<string, unknown> = { model: m.model || runner.defaultModel };
       if (m.maxTokens) config.maxTokens = m.maxTokens;
@@ -200,11 +247,22 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
       };
     });
 
+  // The judge is either a CLI runner (exec script) or an API provider. An API
+  // judge uses the model from its enabled card, falling back to the provider's
+  // first suggested model.
+  const apiJudge = apiProviderByKey(draft.judge);
+  const judgeProvider = apiJudge
+    ? `${apiJudge.key}:${
+        draft.models.find((m) => modelKind(m) === 'api' && m.runner === apiJudge.key && m.enabled)
+          ?.model || apiJudge.models[0]
+      }`
+    : `exec: node ./${runnerByKey(draft.judge).script}`;
+
   const config = {
     description: draft.name,
     prompts: [`file://${slug}.prompt.md`],
     defaultTest: {
-      options: { provider: `exec: node ./${runnerByKey(draft.judge).script}` },
+      options: { provider: judgeProvider },
     },
     providers,
     tests: draft.tests.map((t) => ({
@@ -244,30 +302,48 @@ export function filesToDraft(configAbsPath: string): EvalDraft {
   const prompt = fs.existsSync(promptAbs) ? fs.readFileSync(promptAbs, 'utf8') : '';
 
   const enabledModels: ModelDraft[] = (parsed.providers ?? [])
-    .map((p: any) => {
-      const script = String(p?.id ?? '').replace(/^exec:\s*node\s*/, '');
+    .map((p: any): ModelDraft | null => {
+      const id = String(p?.id ?? '');
+      const apiMatch = id.match(API_PROVIDER_ID);
+      if (apiMatch) {
+        return {
+          runner: apiMatch[1],
+          kind: 'api',
+          model: apiMatch[2],
+          maxTokens: typeof p?.config?.max_tokens === 'number' ? p.config.max_tokens : undefined,
+          enabled: true,
+        };
+      }
+      const script = id.replace(/^exec:\s*node\s*/, '');
       const runner = runnerByScript(script);
       if (!runner) return null;
       return {
         runner: runner.key,
+        kind: 'cli',
         model: p?.config?.model ?? runner.defaultModel,
         maxTokens: typeof p?.config?.maxTokens === 'number' ? p.config.maxTokens : undefined,
         enabled: true,
       };
     })
-    .filter(Boolean);
+    .filter((m: ModelDraft | null): m is ModelDraft => m !== null);
 
-  // Present the full catalog, with un-configured runners toggled off.
-  const models: ModelDraft[] = RUNNER_CATALOG.map((r) => {
-    const found = enabledModels.find((m: ModelDraft) => m.runner === r.key);
-    return found ?? { runner: r.key, model: r.defaultModel, enabled: false };
-  });
+  // Present the full catalog (CLI runners + API providers), un-configured entries toggled off.
+  const models: ModelDraft[] = [
+    ...RUNNER_CATALOG.map((r): ModelDraft => {
+      const found = enabledModels.find((m) => modelKind(m) === 'cli' && m.runner === r.key);
+      return found ?? { runner: r.key, kind: 'cli', model: r.defaultModel, enabled: false };
+    }),
+    ...API_PROVIDERS.map((p): ModelDraft => {
+      const found = enabledModels.find((m) => modelKind(m) === 'api' && m.runner === p.key);
+      return found ?? { runner: p.key, kind: 'api', model: p.models[0], enabled: false };
+    }),
+  ];
 
-  const judgeScript = String(parsed.defaultTest?.options?.provider ?? '').replace(
-    /^exec:\s*node\s*/,
-    '',
-  );
-  const judge = runnerByScript(judgeScript)?.key ?? 'devin';
+  const judgeRaw = String(parsed.defaultTest?.options?.provider ?? '');
+  const judgeApiMatch = judgeRaw.match(API_PROVIDER_ID);
+  const judge = judgeApiMatch
+    ? judgeApiMatch[1]
+    : (runnerByScript(judgeRaw.replace(/^exec:\s*node\s*/, ''))?.key ?? 'devin');
 
   const tests: TestDraft[] = (parsed.tests ?? [])
     .filter((t: unknown) => t && typeof t === 'object')
