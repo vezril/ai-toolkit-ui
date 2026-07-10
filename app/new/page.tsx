@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import type { CheckDraft, EvalDraft, RunnerInfo, TestDraft } from '@/lib/evals';
+import type { ApiProviderOption, CheckDraft, EvalDraft, RunnerInfo, TestDraft } from '@/lib/evals';
 
 const EXAMPLE_PROMPT = `You are an expert Product Owner.
 
@@ -203,6 +204,7 @@ function BuilderInner() {
   const editConfig = useSearchParams().get('config');
 
   const [runners, setRunners] = useState<RunnerInfo[]>([]);
+  const [apiProviders, setApiProviders] = useState<ApiProviderOption[]>([]);
   const [draft, setDraft] = useState<EvalDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -217,15 +219,25 @@ function BuilderInner() {
           return;
         }
         setRunners(b.runners);
+        setApiProviders(b.apiProviders ?? []);
         setDraft(
           b.draft ?? {
             name: '',
             prompt: '',
-            models: b.runners.map((r: RunnerInfo) => ({
-              runner: r.key,
-              model: r.defaultModel,
-              enabled: r.key === 'devin',
-            })),
+            models: [
+              ...b.runners.map((r: RunnerInfo) => ({
+                runner: r.key,
+                kind: 'cli' as const,
+                model: r.defaultModel,
+                enabled: r.key === 'devin',
+              })),
+              ...(b.apiProviders ?? []).map((p: ApiProviderOption) => ({
+                runner: p.key,
+                kind: 'api' as const,
+                model: p.models[0],
+                enabled: false,
+              })),
+            ],
             judge: 'devin',
             tests: [emptyTest()],
           },
@@ -267,10 +279,16 @@ function BuilderInner() {
   if (error && !draft) return <p className="error-text">{error}</p>;
   if (!draft) return <p className="dim">Loading…</p>;
 
-  function setModel(runnerKey: string, patch: Partial<EvalDraft['models'][number]>) {
+  function setModel(
+    kind: 'cli' | 'api',
+    runnerKey: string,
+    patch: Partial<EvalDraft['models'][number]>,
+  ) {
     setDraft({
       ...draft!,
-      models: draft!.models.map((m) => (m.runner === runnerKey ? { ...m, ...patch } : m)),
+      models: draft!.models.map((m) =>
+        m.runner === runnerKey && (m.kind ?? 'cli') === kind ? { ...m, ...patch } : m,
+      ),
     });
   }
 
@@ -322,9 +340,10 @@ function BuilderInner() {
       <p className="dim" style={{ marginTop: -6 }}>
         Every model that's on answers all test cases, so you can compare them side by side.
       </p>
+      <h3 className="model-group-title">CLI runners</h3>
       <div className="model-grid">
         {runners.map((r) => {
-          const m = draft.models.find((m) => m.runner === r.key)!;
+          const m = draft.models.find((m) => (m.kind ?? 'cli') === 'cli' && m.runner === r.key)!;
           return (
             <div className={`card model-card ${m.enabled ? 'on' : ''}`} key={r.key}>
               <div className="row spread">
@@ -333,7 +352,7 @@ function BuilderInner() {
                   <input
                     type="checkbox"
                     checked={m.enabled}
-                    onChange={(e) => setModel(r.key, { enabled: e.target.checked })}
+                    onChange={(e) => setModel('cli', r.key, { enabled: e.target.checked })}
                   />
                   <span className="slider" />
                 </label>
@@ -349,7 +368,7 @@ function BuilderInner() {
                   list={`models-${r.key}`}
                   value={m.model}
                   disabled={!m.enabled}
-                  onChange={(e) => setModel(r.key, { model: e.target.value })}
+                  onChange={(e) => setModel('cli', r.key, { model: e.target.value })}
                 />
                 <datalist id={`models-${r.key}`}>
                   {r.models.map((name) => (
@@ -366,7 +385,7 @@ function BuilderInner() {
                   value={m.maxTokens ?? ''}
                   disabled={!m.enabled}
                   onChange={(e) =>
-                    setModel(r.key, {
+                    setModel('cli', r.key, {
                       maxTokens: e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
@@ -376,6 +395,70 @@ function BuilderInner() {
           );
         })}
       </div>
+
+      <h3 className="model-group-title">API providers</h3>
+      <div className="model-grid">
+        {apiProviders.map((p) => {
+          const m = draft.models.find((m) => m.kind === 'api' && m.runner === p.key)!;
+          return (
+            <div
+              className={`card model-card ${m.enabled ? 'on' : ''} ${!p.keyConfigured ? 'keyless' : ''}`}
+              key={p.key}
+            >
+              <div className="row spread">
+                <h3>{p.label}</h3>
+                <label
+                  className="switch"
+                  title={p.keyConfigured ? (m.enabled ? 'On' : 'Off') : 'Add an API key first'}
+                >
+                  <input
+                    type="checkbox"
+                    checked={m.enabled}
+                    disabled={!p.keyConfigured}
+                    onChange={(e) => setModel('api', p.key, { enabled: e.target.checked })}
+                  />
+                  <span className="slider" />
+                </label>
+              </div>
+              {!p.keyConfigured && (
+                <p className="dim" style={{ fontSize: 12, margin: '2px 0' }}>
+                  🔒 <Link href="/settings">Add {p.label} key in Settings →</Link>
+                </p>
+              )}
+              <label className="field">
+                <span>Model</span>
+                <input
+                  list={`models-api-${p.key}`}
+                  value={m.model}
+                  disabled={!m.enabled}
+                  onChange={(e) => setModel('api', p.key, { model: e.target.value })}
+                />
+                <datalist id={`models-api-${p.key}`}>
+                  {p.models.map((name) => (
+                    <option value={name} key={name} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="field" style={{ marginTop: 6 }}>
+                <span>Max tokens (optional)</span>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="provider default"
+                  value={m.maxTokens ?? ''}
+                  disabled={!m.enabled}
+                  onChange={(e) =>
+                    setModel('api', p.key, {
+                      maxTokens: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="card">
         <label className="field">
           <span>Judge — grades the "AI judge" checks</span>
@@ -383,11 +466,21 @@ function BuilderInner() {
             value={draft.judge}
             onChange={(e) => setDraft({ ...draft, judge: e.target.value })}
           >
-            {runners.map((r) => (
-              <option value={r.key} key={r.key}>
-                {r.name}
-              </option>
-            ))}
+            <optgroup label="CLI runners">
+              {runners.map((r) => (
+                <option value={r.key} key={r.key}>
+                  {r.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="API providers">
+              {apiProviders.map((p) => (
+                <option value={p.key} key={p.key} disabled={!p.keyConfigured}>
+                  {p.label}
+                  {!p.keyConfigured ? ' (no key)' : ''}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
       </div>

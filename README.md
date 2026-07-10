@@ -12,6 +12,13 @@ iterate.
   models on/off with per-model settings, then save & run. The promptfoo YAML is generated
   under `evals/` in the target project; builder-created evals round-trip back into the
   form for editing.
+- **CLI runners + direct API providers** — evaluate via the target project's AI-CLI
+  wrapper scripts (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) and/or
+  directly via provider APIs (Anthropic, OpenAI, Google). API entries unlock when you add
+  a key in Settings and are injected into runs as environment variables only.
+- **Settings** — sidebar-pinned system configuration: provider API keys stored in
+  `~/.ai-toolkit-ui/settings.json` (owner-only permissions, outside any git repo), masked
+  after save.
 - **Dashboard** — auto-discovers every promptfoo config in the target project and shows
   providers, grader, prompt files, and test counts.
 - **Config pages** — edit the config YAML, the prompt-under-test, and any referenced test-suite

@@ -56,44 +56,96 @@ a:hover {
   text-decoration: underline;
 }
 
-.topnav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  height: 52px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
   position: sticky;
   top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 10px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
   z-index: 10;
 }
-.topnav .brand {
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
   font-weight: 700;
   font-size: 15px;
   color: var(--text);
 }
-.topnav .brand span {
+.sidebar .brand:hover {
+  text-decoration: none;
+}
+.sidebar .brand .navlink-label span {
   color: var(--text-dim);
   font-weight: 500;
 }
-.topnav nav {
+.sidebar-tools {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 2px;
 }
-.topnav nav a {
+.sidebar-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.navlink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
   color: var(--text-dim);
   font-weight: 500;
+  white-space: nowrap;
 }
-.topnav nav a:hover {
+.navlink:hover {
+  background: var(--surface-2);
   color: var(--text);
   text-decoration: none;
+}
+.navlink.active {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.navlink-icon {
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .page {
   max-width: 1100px;
   margin: 0 auto;
   padding: 24px;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 56px 1fr;
+  }
+  .sidebar {
+    padding: 14px 8px;
+    align-items: center;
+  }
+  .navlink-label {
+    display: none;
+  }
 }
 
 h1 {
@@ -411,11 +463,22 @@ details.assertion .body {
   margin-top: 8px;
 }
 
+.model-group-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 14px 0 8px;
+}
 .model-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 14px;
   margin-bottom: 14px;
+}
+.model-card.keyless {
+  opacity: 0.55;
+  border-style: dashed;
 }
 .model-card {
   margin-bottom: 0;

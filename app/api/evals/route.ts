@@ -1,7 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
-import { draftToFiles, filesToDraft, listRunners, type EvalDraft } from '@/lib/evals';
+import {
+  draftToFiles,
+  filesToDraft,
+  listApiProviders,
+  listRunners,
+  type EvalDraft,
+} from '@/lib/evals';
 import { REPO_ROOT, resolveRepoPath } from '@/lib/paths';
 
 export const dynamic = 'force-dynamic';
@@ -10,9 +16,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const configRel = req.nextUrl.searchParams.get('config');
   try {
-    if (!configRel) return NextResponse.json({ runners: listRunners() });
+    if (!configRel) {
+      return NextResponse.json({ runners: listRunners(), apiProviders: listApiProviders() });
+    }
     const abs = resolveRepoPath(configRel);
-    return NextResponse.json({ draft: filesToDraft(abs), runners: listRunners() });
+    return NextResponse.json({
+      draft: filesToDraft(abs),
+      runners: listRunners(),
+      apiProviders: listApiProviders(),
+    });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 });
   }

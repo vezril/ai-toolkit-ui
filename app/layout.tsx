@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import NavLinks from './components/NavLinks';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -11,16 +12,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <header className="topnav">
-          <Link href="/" className="brand">
-            ⚡ AI Toolkit <span>UI</span>
-          </Link>
-          <nav>
-            <Link href="/">Dashboard</Link>
-            <Link href="/runs">Runs</Link>
-          </nav>
-        </header>
-        <main className="page">{children}</main>
+        <div className="shell">
+          <aside className="sidebar">
+            <Link href="/" className="brand" title="AI Toolkit UI">
+              <span className="navlink-icon">⚡</span>
+              <span className="navlink-label">
+                AI Toolkit <span>UI</span>
+              </span>
+            </Link>
+            <NavLinks />
+          </aside>
+          <main className="page">{children}</main>
+        </div>
       </body>
     </html>
   );

@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { REPO_ROOT, RUNS_DIR, resolveRepoPath } from './paths';
+import { settingsEnv } from './settings';
 
 export type RunStatus = 'running' | 'completed' | 'failed';
 
@@ -62,9 +63,11 @@ export function startRun(configRelPath: string): RunMeta {
   const args = ['promptfoo', 'eval', '--no-cache', '--config', configAbs, '--output', outputFile];
   appendLog(run, `$ npx ${args.join(' ')}\n\n`);
 
+  // API keys travel to promptfoo as env vars only — never as CLI args (visible
+  // in `ps`), never in the log, never in generated YAML.
   const child = spawn('npx', args, {
     cwd: REPO_ROOT,
-    env: { ...process.env, FORCE_COLOR: '0' },
+    env: { ...process.env, ...settingsEnv(), FORCE_COLOR: '0' },
   });
 
   child.stdout.on('data', (d) => appendLog(run, d.toString()));
