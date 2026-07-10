@@ -25,11 +25,18 @@ export default function Dashboard() {
 
   return (
     <>
-      <h1>Eval Configurations</h1>
-      <p className="subtitle">
-        Pick a config to edit its prompt and tests, or launch an eval run. This is the EDD loop:
-        edit → run → read per-dimension results → iterate.
-      </p>
+      <div className="row spread">
+        <div>
+          <h1>Eval Configurations</h1>
+          <p className="subtitle">
+            Pick a config to edit its prompt and tests, or launch an eval run. This is the EDD
+            loop: edit → run → read per-dimension results → iterate.
+          </p>
+        </div>
+        <Link className="btn primary" href="/new">
+          + New evaluation
+        </Link>
+      </div>
 
       {error && <p className="error-text">{error}</p>}
       {!configs && !error && <p className="dim">Loading configs…</p>}
@@ -44,7 +51,14 @@ export default function Dashboard() {
               <div className="meta mono">{c.path}</div>
             </div>
             <div className="row">
-              <Link className="btn" href={`/config?file=${encodeURIComponent(c.path)}`}>
+              <Link
+                className="btn"
+                href={
+                  c.generated
+                    ? `/new?config=${encodeURIComponent(c.path)}`
+                    : `/config?file=${encodeURIComponent(c.path)}`
+                }
+              >
                 ✎ Edit
               </Link>
               <RunButton config={c.path} />
@@ -54,8 +68,7 @@ export default function Dashboard() {
             <span className="badge">{c.tests.length} tests</span>
             {c.providers.map((p) => (
               <span className="badge" key={`${p.id}-${p.label ?? ''}`}>
-                provider: {p.label ?? p.id}
-                {p.model ? ` (${p.model})` : ''}
+                provider: {p.label ?? (p.model ? `${p.id} (${p.model})` : p.id)}
               </span>
             ))}
             {c.grader && <span className="badge">grader: {c.grader.replace(/^exec:\s*/, '')}</span>}

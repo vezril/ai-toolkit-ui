@@ -7,6 +7,11 @@ iterate.
 
 ## Features
 
+- **Eval builder** — create a new prompt evaluation from a form: write the prompt, add
+  example inputs with plain-English checks (text-contains and AI-judge criteria), toggle
+  models on/off with per-model settings, then save & run. The promptfoo YAML is generated
+  under `evals/` in the target project; builder-created evals round-trip back into the
+  form for editing.
 - **Dashboard** — auto-discovers every promptfoo config in the target project and shows
   providers, grader, prompt files, and test counts.
 - **Config pages** — edit the config YAML, the prompt-under-test, and any referenced test-suite

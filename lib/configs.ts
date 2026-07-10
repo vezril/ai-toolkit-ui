@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import YAML from 'yaml';
+import { GENERATED_MARKER } from './evals';
 import { REPO_ROOT } from './paths';
 
 export interface AssertSummary {
@@ -33,6 +34,7 @@ export interface ConfigSummary {
   tests: TestSummary[];
   suiteFiles: string[];
   outputPath?: string;
+  generated: boolean; // created by the eval builder → editable as a form
   error?: string;
 }
 
@@ -114,8 +116,10 @@ function collectTests(
 function summarizeConfig(absPath: string): ConfigSummary | null {
   const rel = path.relative(REPO_ROOT, absPath);
   let parsed: any;
+  let raw: string;
   try {
-    parsed = YAML.parse(fs.readFileSync(absPath, 'utf8'));
+    raw = fs.readFileSync(absPath, 'utf8');
+    parsed = YAML.parse(raw);
   } catch (err) {
     return null;
   }
@@ -147,6 +151,7 @@ function summarizeConfig(absPath: string): ConfigSummary | null {
     tests,
     suiteFiles,
     outputPath: parsed.outputPath,
+    generated: raw.startsWith(GENERATED_MARKER),
   };
 }
 

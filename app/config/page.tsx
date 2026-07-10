@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import type { ConfigSummary } from '@/lib/configs';
@@ -14,8 +15,7 @@ function Overview({ config }: { config: ConfigSummary }) {
         <div className="row" style={{ marginTop: 8 }}>
           {config.providers.map((p) => (
             <span className="badge" key={`${p.id}-${p.label ?? ''}`}>
-              {p.label ?? p.id}
-              {p.model ? ` (${p.model})` : ''}
+              {p.label ?? (p.model ? `${p.id} (${p.model})` : p.id)}
             </span>
           ))}
           {config.grader && (
@@ -87,7 +87,14 @@ function ConfigPageInner() {
           <h1>{config.description}</h1>
           <p className="subtitle mono">{config.path}</p>
         </div>
-        <RunButton config={config.path} />
+        <span className="row">
+          {config.generated && (
+            <Link className="btn" href={`/new?config=${encodeURIComponent(config.path)}`}>
+              ✎ Edit in builder
+            </Link>
+          )}
+          <RunButton config={config.path} />
+        </span>
       </div>
 
       <div className="tabs">
