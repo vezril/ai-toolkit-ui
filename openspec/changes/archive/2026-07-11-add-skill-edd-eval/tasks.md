@@ -14,4 +14,4 @@
 
 - [x] 3.1 PRD §11 delta row for `add-skill-edd-eval`; note reuse of FR-10..16 (no new eval-side requirements)
 - [x] 3.2 Bump to 0.5.0; CHANGELOG entry; README (Skill Builder bullet gains the EDD-loop sentence)
-- [ ] 3.3 Full verify pass over the spec scenarios, feature-branch PR, human gate, merge, tag v0.5.0, archive the change (sync delta into the living skill-builder spec)
+- [x] 3.3 Full verify pass over the spec scenarios, feature-branch PR, human gate, merge, tag v0.5.0, archive the change (sync delta into the living skill-builder spec)
