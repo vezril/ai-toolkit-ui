@@ -55,3 +55,10 @@ The Settings page SHALL provide a Runs section with two numeric fields: maximum 
 #### Scenario: Invalid value rejected
 - **WHEN** the user submits a max concurrent runs of 0
 - **THEN** the API responds 400 and the previous value is retained
+
+### Requirement: Configurable workflows directory
+The Settings page SHALL provide a "Workflows directory" field accepting an absolute path to an existing directory (e.g. `/Users/cference/Code/claude-toolkit/workflows`), persisted in `~/.ai-toolkit-ui/settings.json`, validated like the skills directory (absolute, exists, is a directory; invalid values rejected retaining the previous). Clearing it disables the Workflows tool, which then links to Settings.
+
+#### Scenario: Setting the workflows directory
+- **WHEN** the user saves a valid workflows directory path
+- **THEN** `/workflows` lists that directory's workflow scripts without a restart
