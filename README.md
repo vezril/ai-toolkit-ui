@@ -25,7 +25,9 @@ iterate.
   (errors block saves, warnings inform; badges on the list view). Unknown frontmatter
   survives edits untouched. One click creates an **EDD eval** for a skill — a promptfoo
   eval embedding the skill as loaded context — and keeps it synced as the skill evolves,
-  without ever touching your test refinements.
+  without ever touching your test refinements. Or create a **blind A/B eval**: with-skill
+  vs a plain baseline, judged unlabeled per test, with win tallies in the results —
+  proof the skill actually pulls its weight.
 - **Dashboard** — auto-discovers every promptfoo config in the target project and shows
   providers, grader, prompt files, and test counts.
 - **Config pages** — edit the config YAML, the prompt-under-test, and any referenced test-suite

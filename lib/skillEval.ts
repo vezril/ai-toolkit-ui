@@ -85,8 +85,17 @@ export interface SkillEvalResult {
   configPath: string;
 }
 
+const BASELINE_PROMPT = `Answer the following request.
+
+Here's the request:
+{{request}}
+`;
+
 /** Create the starter eval (status none) or re-sync the prompt file (status current/stale). */
-export function createOrSyncSkillEval(skillName: string): SkillEvalResult {
+export function createOrSyncSkillEval(
+  skillName: string,
+  opts: { ab?: boolean } = {},
+): SkillEvalResult {
   const skill = readSkill(skillName); // validates name + existence via the skills sandbox
   const { configRel, promptRel } = evalPaths(skillName);
   const info = skillEvalStatus(skillName);
@@ -103,6 +112,12 @@ export function createOrSyncSkillEval(skillName: string): SkillEvalResult {
     const draft: EvalDraft = {
       name: `Skill: ${skillName}`,
       prompt: promptText,
+      ...(opts.ab
+        ? {
+            promptB: BASELINE_PROMPT,
+            promptBPath: `${EVALS_DIR}/skill-${skillName}.baseline.prompt.md`,
+          }
+        : {}),
       models: [{ runner: 'devin', kind: 'cli', model: 'SWE-1.6', enabled: true }],
       judge: 'devin',
       tests: [
@@ -117,6 +132,14 @@ export function createOrSyncSkillEval(skillName: string): SkillEvalResult {
               threshold: 0.7,
               weight: 1,
             },
+            ...(opts.ab
+              ? [
+                  {
+                    kind: 'ab-winner' as const,
+                    criterion: `Which response better follows the ${skillName} skill's guidance?`,
+                  },
+                ]
+              : []),
           ],
         },
       ],
@@ -127,6 +150,9 @@ export function createOrSyncSkillEval(skillName: string): SkillEvalResult {
     }
     fs.mkdirSync(path.join(REPO_ROOT, EVALS_DIR), { recursive: true });
     fs.writeFileSync(resolveRepoPath(files.promptPath), files.promptText, 'utf8');
+    if (files.promptBPath && files.promptBText !== undefined) {
+      fs.writeFileSync(resolveRepoPath(files.promptBPath), files.promptBText, 'utf8');
+    }
     fs.writeFileSync(resolveRepoPath(files.configPath), files.configYaml, 'utf8');
     return { action: 'created', configPath: configRel };
   }

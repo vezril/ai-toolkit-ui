@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-11
+
+### Added
+
+- **Blind A/B evals**: the eval builder supports an optional comparison prompt (B) —
+  every test case runs against both prompts — and a "Blind A/B winner" check
+  (promptfoo `select-best`) where the judge picks the better variant unlabeled.
+  The results page becomes variant-aware: per-variant pass counts in the stat row,
+  test cards grouped with variants side by side, and a win tally when A/B checks ran.
+  The builder warns when an A/B check is paired with a CLI-script judge (API-provider
+  judges parse the comparison reliably).
+- **Create A/B eval from a skill**: generates the with-skill arm plus a deliberately
+  plain baseline arm (same template, no skill block), seeded with rubric and A/B-winner
+  checks — the blind with-vs-without comparison from the skill evaluation framework.
+  Skill sync continues to regenerate only the with-skill prompt.
+
+### Fixed
+
+- Generated eval configs referenced runner scripts as `./<script>.js`, but promptfoo
+  resolves `exec:` paths against the config file's directory — runs of builder-generated
+  evals (which live under `evals/`) failed to find the scripts. Generated configs now
+  reference `../<script>.js`. Existing generated configs can be fixed by re-saving in
+  the builder.
+
 ## [0.5.0] - 2026-07-11
 
 ### Added
@@ -89,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.6.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.2.0...v0.3.0

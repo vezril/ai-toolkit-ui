@@ -14,14 +14,34 @@ interface RunView {
   log: string;
 }
 
-function TestRow({ t }: { t: TestResult }) {
+/** Group variant rows by test case (testIdx when present, else description+vars). */
+function groupByTest(rows: TestResult[]): [string, TestResult[]][] {
+  const groups = new Map<string, TestResult[]>();
+  for (const r of rows) {
+    const key =
+      r.testIdx !== undefined
+        ? `t${r.testIdx}·${r.provider ?? ''}`
+        : `${r.description ?? ''}·${JSON.stringify(r.vars)}·${r.provider ?? ''}`;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  return [...groups.entries()];
+}
+
+function TestRow({ t, variantMode }: { t: TestResult; variantMode?: boolean }) {
   const varsText = Object.entries(t.vars)
     .map(([k, v]) => `${k}: ${String(v)}`)
     .join(' · ');
   return (
-    <div className="card">
+    <div className="card" style={variantMode ? { marginBottom: 8 } : undefined}>
       <div className="row spread">
-        <h3>{t.description ?? varsText ?? 'Test'}</h3>
+        {variantMode ? (
+          <span className="row">
+            <span className="badge">{t.promptLabel}</span>
+            {t.wonAb && <span className="badge pass">🏆 A/B winner</span>}
+          </span>
+        ) : (
+          <h3>{t.description ?? varsText ?? 'Test'}</h3>
+        )}
         <span className="row">
           {t.score !== null && <span className="badge">score {t.score.toFixed(2)}</span>}
           <span className={`badge ${t.success ? 'pass' : 'fail'}`}>
@@ -30,7 +50,8 @@ function TestRow({ t }: { t: TestResult }) {
         </span>
       </div>
       <div className="meta">
-        {t.provider && <span className="badge">{t.provider}</span>} {varsText}
+        {t.provider && <span className="badge">{t.provider}</span>}
+        {!variantMode && ` ${varsText}`}
       </div>
       {t.error && <p className="error-text">{t.error}</p>}
 
@@ -162,10 +183,38 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
             </div>
             <div className="label">pass rate</div>
           </div>
+          {results.variants?.map((v) => (
+            <div className="stat" key={v.label}>
+              <div className="num">
+                {v.passed}/{v.passed + v.failed}
+                {results.variants!.some((x) => x.wins > 0) && (
+                  <span style={{ fontSize: 14 }}> · 🏆{v.wins}</span>
+                )}
+              </div>
+              <div className="label" title={v.label}>
+                {v.label.length > 24 ? `${v.label.slice(0, 24)}…` : v.label}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {results?.results.map((t, i) => <TestRow t={t} key={i} />)}
+      {results && !results.variants && results.results.map((t, i) => <TestRow t={t} key={i} />)}
+
+      {results?.variants &&
+        groupByTest(results.results).map(([key, rows]) => (
+          <div className="card" key={key} style={{ background: 'var(--surface-2)' }}>
+            <h3>{rows[0].description ?? 'Test'}</h3>
+            <div className="meta">
+              {Object.entries(rows[0].vars)
+                .map(([k, v]) => `${k}: ${String(v)}`)
+                .join(' · ')}
+            </div>
+            {rows.map((t, i) => (
+              <TestRow t={t} variantMode key={i} />
+            ))}
+          </div>
+        ))}
 
       {run.status === 'completed' && !results && (
         <p className="dim">Run finished but no parseable results were found.</p>

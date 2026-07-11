@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/skills/eval — { name } → create the starter eval or sync its prompt file */
 export async function POST(req: NextRequest) {
-  let body: { name?: string };
+  let body: { name?: string; ab?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
   if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 });
   try {
-    const result = createOrSyncSkillEval(body.name);
+    const result = createOrSyncSkillEval(body.name, { ab: body.ab });
     return NextResponse.json(result, { status: result.action === 'created' ? 201 : 200 });
   } catch (err) {
     return NextResponse.json(

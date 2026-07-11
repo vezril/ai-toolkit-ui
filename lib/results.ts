@@ -18,12 +18,35 @@ export interface TestResult {
   error?: string;
   output?: string;
   assertions: AssertionResult[];
+  testIdx?: number;
+  promptIdx?: number;
+  promptLabel?: string;
+  wonAb?: boolean; // this variant won the test's blind A/B comparison
+}
+
+export interface VariantStats {
+  label: string;
+  passed: number;
+  failed: number;
+  wins: number; // blind A/B wins (0 when no select-best checks ran)
 }
 
 export interface NormalizedResults {
   timestamp?: string;
   stats: { total: number; passed: number; failed: number };
+  variants?: VariantStats[]; // present when the run had 2+ prompt variants
   results: TestResult[];
+}
+
+/** Human label for a prompt variant: prompt-file basename when derivable, else A/B/P<n>. */
+function variantLabel(row: any, promptIdx: number | undefined): string {
+  const raw = row?.prompt?.label;
+  if (typeof raw === 'string' && !raw.includes('\n') && raw.length <= 160) {
+    const base = raw.split(/[\\/]/).pop() ?? raw;
+    if (base.endsWith('.md')) return base;
+  }
+  if (promptIdx === undefined) return 'A';
+  return promptIdx < 26 ? String.fromCharCode(65 + promptIdx) : `P${promptIdx + 1}`;
 }
 
 /**
@@ -58,6 +81,7 @@ export function loadResults(outputFile: string): NormalizedResults | null {
       reason: c?.reason,
     }));
 
+    const promptIdx = typeof r?.promptIdx === 'number' ? r.promptIdx : undefined;
     const rawOutput = r?.response?.output ?? r?.output;
     return {
       description: r?.testCase?.description ?? r?.description,
@@ -73,13 +97,35 @@ export function loadResults(outputFile: string): NormalizedResults | null {
             ? JSON.stringify(rawOutput, null, 2)
             : undefined,
       assertions,
+      testIdx: typeof r?.testIdx === 'number' ? r.testIdx : undefined,
+      promptIdx,
+      promptLabel: variantLabel(r, promptIdx),
+      wonAb: assertions.some((a) => a.type === 'select-best' && a.pass) || undefined,
     };
   });
+
+  // Variant stats when 2+ prompt variants ran (defensive: absent promptIdx → single-variant).
+  const promptIdxs = [...new Set(results.map((r) => r.promptIdx).filter((i) => i !== undefined))];
+  let variants: VariantStats[] | undefined;
+  if (promptIdxs.length > 1) {
+    variants = promptIdxs
+      .sort((a, b) => a! - b!)
+      .map((idx) => {
+        const rows = results.filter((r) => r.promptIdx === idx);
+        return {
+          label: rows[0]?.promptLabel ?? String(idx),
+          passed: rows.filter((r) => r.success).length,
+          failed: rows.filter((r) => !r.success).length,
+          wins: rows.filter((r) => r.wonAb).length,
+        };
+      });
+  }
 
   const passed = results.filter((r) => r.success).length;
   return {
     timestamp: body?.results?.timestamp,
     stats: { total: results.length, passed, failed: results.length - passed },
+    variants,
     results,
   };
 }

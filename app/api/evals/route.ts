@@ -46,6 +46,9 @@ function writeEvalFiles(draft: EvalDraft, { mustExist }: { mustExist: boolean })
 
   fs.mkdirSync(path.join(REPO_ROOT, path.dirname(files.configPath)), { recursive: true });
   fs.writeFileSync(promptAbs, files.promptText, 'utf8');
+  if (files.promptBPath && files.promptBText !== undefined) {
+    fs.writeFileSync(resolveRepoPath(files.promptBPath), files.promptBText, 'utf8');
+  }
   fs.writeFileSync(configAbs, files.configYaml, 'utf8');
   return files;
 }
