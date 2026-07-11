@@ -1,5 +1,8 @@
 # eval-coach
 
+## Purpose
+Advisory structural heuristics over eval configs and drafts, surfaced live in the builder and as dashboard badges, with inline refinement for content-gap findings.
+
 ## Requirements
 
 ### Requirement: Static structural heuristics for evals

@@ -1,5 +1,8 @@
 # guided-eval-setup
 
+## Purpose
+A five-stage wizard that converts terse answers into a well-formed eval draft handed to the builder, owning no persistence of its own.
+
 ## Requirements
 
 ### Requirement: Guided setup entry point

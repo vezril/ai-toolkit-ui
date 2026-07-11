@@ -1,5 +1,8 @@
 # run-guardrails
 
+## Purpose
+Bounds on in-flight eval runs: one run per config, a global concurrency cap, and a process-group-killing timeout — because runs invoke paid AI services.
+
 ## Requirements
 
 ### Requirement: One in-flight run per config

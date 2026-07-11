@@ -1,5 +1,8 @@
 # direct-api-providers
 
+## Purpose
+Key-gated direct API model providers (Anthropic/OpenAI/Google) in the eval builder and judge picker, with keys injected into runs as environment variables only.
+
 ## Requirements
 
 ### Requirement: Builder offers direct API providers alongside CLI runners

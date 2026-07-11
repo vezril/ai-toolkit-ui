@@ -1,5 +1,8 @@
 # eval-ab-comparison
 
+## Purpose
+Two-prompt blind A/B comparison evals: comparison prompt, select-best winner checks, and variant-aware results with win tallies.
+
 ## Requirements
 
 ### Requirement: Builder supports an optional comparison prompt
