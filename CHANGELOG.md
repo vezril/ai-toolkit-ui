@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-11
+
+### Added
+
+- **Skill → EDD eval loop**: a "Create EDD eval" action on every skill (editor and list
+  card) generates a starter promptfoo eval in the target project that embeds the skill
+  as loaded context above `{{request}}`, seeded with a rubric check, and opens it in the
+  eval builder for refinement. When the skill changes, the action becomes
+  "Sync skill → eval" (with a staleness hint) and regenerates only the prompt file —
+  test cases and checks are never touched. Hand-written evals occupying a
+  `skill-<name>` slug are refused, never overwritten.
+
 ## [0.4.0] - 2026-07-11
 
 ### Added
@@ -77,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.5.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.1.0...v0.2.0

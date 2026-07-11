@@ -1,8 +1,52 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { SkillSummary } from '@/lib/skills';
+
+type EvalStatus = 'none' | 'current' | 'stale' | 'conflict';
+
+function EvalShortcut({ name, status }: { name: string; status: EvalStatus }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function createOrSync() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/skills/eval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const body = await res.json();
+      if (res.ok) router.push(`/new?config=${encodeURIComponent(body.configPath)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (status === 'conflict') return <span className="badge fail" title="A hand-written eval occupies this name">eval conflict</span>;
+  if (status === 'none') {
+    return (
+      <button className="link-btn" onClick={createOrSync} disabled={busy} title="Create an EDD eval that embeds this skill">
+        {busy ? '…' : '⚗ EDD eval'}
+      </button>
+    );
+  }
+  return (
+    <span className="row" style={{ gap: 4 }}>
+      {status === 'stale' && (
+        <button className="link-btn" onClick={createOrSync} disabled={busy} title="Skill changed since last sync — sync and open">
+          {busy ? '…' : '⚠ sync'}
+        </button>
+      )}
+      <Link href={`/new?config=${encodeURIComponent(`evals/skill-${name}.config.yaml`)}`} title="Open this skill's EDD eval">
+        eval →
+      </Link>
+    </span>
+  );
+}
 
 function HealthBadge({ health }: { health: SkillSummary['health'] }) {
   if (health.errors.length) return <span className="badge fail">{health.errors.length} error{health.errors.length > 1 ? 's' : ''}</span>;
@@ -13,6 +57,7 @@ function HealthBadge({ health }: { health: SkillSummary['health'] }) {
 export default function SkillsPage() {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [evalStatuses, setEvalStatuses] = useState<Record<string, EvalStatus>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,6 +71,10 @@ export default function SkillsPage() {
         }
       })
       .catch((e) => setError(String(e)));
+    fetch('/api/skills/eval')
+      .then((r) => r.json())
+      .then((b) => setEvalStatuses(b.statuses ?? {}))
+      .catch(() => {});
   }, []);
 
   return (
@@ -73,6 +122,7 @@ export default function SkillsPage() {
               <Link href={`/skills/edit?name=${encodeURIComponent(s.name)}`}>{s.name}</Link>
             </h3>
             <span className="row">
+              <EvalShortcut name={s.name} status={evalStatuses[s.name] ?? 'none'} />
               {s.supportingFiles.length > 0 && (
                 <span className="badge" title={s.supportingFiles.join(', ')}>
                   +{s.supportingFiles.length} file{s.supportingFiles.length > 1 ? 's' : ''}
