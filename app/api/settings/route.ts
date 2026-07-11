@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   API_PROVIDERS,
   deleteApiKey,
+  getRunGuardrails,
   getSkillsDir,
   maskedKeys,
   setApiKey,
+  setRunGuardrails,
   setSkillsDir,
+  type RunGuardrails,
 } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
@@ -24,18 +27,31 @@ export async function GET() {
       setAt: stored?.setAt ?? null,
     };
   });
-  return NextResponse.json({ providers, skillsDir: getSkillsDir() });
+  return NextResponse.json({
+    providers,
+    skillsDir: getSkillsDir(),
+    runGuardrails: getRunGuardrails(),
+  });
 }
 
-/** PUT /api/settings — upsert one provider key ({ provider, key }) or the skills directory ({ skillsDir }) */
+/** PUT /api/settings — upsert one provider key ({ provider, key }), the skills directory ({ skillsDir }), or run guardrails ({ runGuardrails }) */
 export async function PUT(req: NextRequest) {
-  let body: { provider?: string; key?: string; skillsDir?: string };
+  let body: {
+    provider?: string;
+    key?: string;
+    skillsDir?: string;
+    runGuardrails?: Partial<RunGuardrails>;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 });
   }
   try {
+    if (body.runGuardrails !== undefined) {
+      setRunGuardrails(body.runGuardrails);
+      return NextResponse.json({ ok: true, runGuardrails: getRunGuardrails() });
+    }
     if (typeof body.skillsDir === 'string') {
       setSkillsDir(body.skillsDir);
       return NextResponse.json({ ok: true, skillsDir: getSkillsDir() });

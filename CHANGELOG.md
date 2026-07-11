@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-11
+
+### Added
+
+- **Run guardrails** (closes baseline architecture risk R-3): starting a run for a config
+  that's already running is rejected; total in-flight runs are capped (Settings, default 2);
+  each run gets a timeout (default 15 minutes, 0 disables) that terminates the child's
+  entire process group — SIGTERM, then SIGKILL after 5 seconds — and marks the run failed
+  with a note in its log. Both knobs live in a new Settings → Runs section and apply to
+  subsequently started runs without a restart.
+
 ## [0.7.0] - 2026-07-11
 
 ### Added
@@ -131,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.8.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.4.0...v0.5.0
