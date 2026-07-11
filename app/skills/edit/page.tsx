@@ -29,15 +29,78 @@ function DescriptionCounter({ length }: { length: number }) {
   );
 }
 
+type EvalStatus = 'none' | 'current' | 'stale' | 'conflict';
+
+function SkillEvalButton({ name, status, onAction }: { name: string; status: EvalStatus; onAction: () => void }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function createOrSync(openAfter: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/skills/eval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      if (openAfter) router.push(`/new?config=${encodeURIComponent(body.configPath)}`);
+      else onAction();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  }
+
+  if (status === 'conflict') {
+    return (
+      <span className="dim" style={{ fontSize: 13 }}>
+        ⚠ a hand-written eval occupies <span className="mono">skill-{name}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="row">
+      {status === 'none' && (
+        <button onClick={() => createOrSync(true)} disabled={busy}>
+          {busy ? 'Creating…' : '⚗ Create EDD eval'}
+        </button>
+      )}
+      {status === 'stale' && (
+        <button onClick={() => createOrSync(false)} disabled={busy} title="The skill changed since the eval's prompt was last generated">
+          {busy ? 'Syncing…' : '⚠ Sync skill → eval'}
+        </button>
+      )}
+      {(status === 'current' || status === 'stale') && (
+        <Link className="btn" href={`/new?config=${encodeURIComponent(`evals/skill-${name}.config.yaml`)}`}>
+          Open EDD eval →
+        </Link>
+      )}
+      {error && <span className="error-text">{error}</span>}
+    </span>
+  );
+}
+
 function EditorInner() {
   const router = useRouter();
   const editName = useSearchParams().get('name');
 
   const [form, setForm] = useState<SkillForm | null>(null);
+  const [evalStatus, setEvalStatus] = useState<EvalStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
+
+  function loadEvalStatus(name: string) {
+    fetch(`/api/skills/eval?name=${encodeURIComponent(name)}`)
+      .then((r) => r.json())
+      .then((b) => setEvalStatus(b.status ?? null))
+      .catch(() => {});
+  }
 
   useEffect(() => {
     if (!editName) {
@@ -48,6 +111,7 @@ function EditorInner() {
       .then((r) => r.json())
       .then((b) => (b.error ? setError(b.error) : setForm(b.skill)))
       .catch((e) => setError(String(e)));
+    loadEvalStatus(editName);
   }, [editName]);
 
   async function save() {
@@ -69,6 +133,8 @@ function EditorInner() {
       if (!editName) {
         // Stay reachable for further edits under the now-fixed name.
         router.replace(`/skills/edit?name=${encodeURIComponent(form.name)}`);
+      } else {
+        loadEvalStatus(editName); // a save may have made the linked eval stale
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -185,12 +251,21 @@ function EditorInner() {
         </div>
       </details>
 
-      <div className="row" style={{ margin: '20px 0' }}>
-        <button className="primary" onClick={save} disabled={busy}>
-          {busy ? 'Saving…' : editName ? 'Save changes' : 'Create skill'}
-        </button>
-        {savedNote && <span className="save-note">Saved ✓</span>}
-        {error && <span className="error-text">{error}</span>}
+      <div className="row spread" style={{ margin: '20px 0' }}>
+        <span className="row">
+          <button className="primary" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : editName ? 'Save changes' : 'Create skill'}
+          </button>
+          {savedNote && <span className="save-note">Saved ✓</span>}
+          {error && <span className="error-text">{error}</span>}
+        </span>
+        {editName && evalStatus && (
+          <SkillEvalButton
+            name={editName}
+            status={evalStatus}
+            onAction={() => loadEvalStatus(editName)}
+          />
+        )}
       </div>
       {warnings.length > 0 && (
         <div className="card" style={{ borderColor: 'var(--running)' }}>
