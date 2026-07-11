@@ -181,6 +181,29 @@ export function listSkills(): SkillSummary[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Sandboxed absolute path of a skill's SKILL.md (for sibling modules like skillFixes). */
+export function skillFile(name: string): string {
+  return path.join(resolveSkillDir(name), 'SKILL.md');
+}
+
+/** Directory names of all sibling skills in the configured root. */
+export function listSkillDirNames(): string[] {
+  return listSiblingDirs(skillsRoot());
+}
+
+/** Current health findings for one skill (validator + nested check). */
+export function skillHealth(name: string): SkillHealth {
+  const skillDir = resolveSkillDir(name);
+  const file = path.join(skillDir, 'SKILL.md');
+  if (!fs.existsSync(file)) throw new Error(`Skill not found: ${name}`);
+  const parsed = parseSkillMd(fs.readFileSync(file, 'utf8'));
+  const health = validateSkill(name, parsed, listSkillDirNames());
+  if (hasNestedSkillMd(skillDir)) {
+    health.errors.push('Contains a nested SKILL.md (discovery is one level deep)');
+  }
+  return health;
+}
+
 export function readSkill(name: string): SkillForm {
   const skillDir = resolveSkillDir(name);
   const file = path.join(skillDir, 'SKILL.md');

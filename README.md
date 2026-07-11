@@ -26,7 +26,8 @@ iterate.
 - **Skill Builder** — browse, create, and edit Agent Skills (`SKILL.md`) in a configured
   skills directory, with authoring guidance baked into the form (description length band,
   trigger-phrase coaching, optional frontmatter fields) and structural health checks
-  (errors block saves, warnings inform; badges on the list view). Unknown frontmatter
+  (errors block saves, warnings inform; badges on the list view), and mechanical findings
+  carry one-click verified quick-fixes behind inline diff previews. Unknown frontmatter
   survives edits untouched. One click creates an **EDD eval** for a skill — a promptfoo
   eval embedding the skill as loaded context — and keeps it synced as the skill evolves,
   without ever touching your test refinements. Or create a **blind A/B eval**: with-skill
