@@ -2,8 +2,121 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import HistoryPanel from '../../components/HistoryPanel';
 import type { WorkflowDetail, WorkflowModel, WorkflowPhase, WorkflowStep } from '@/lib/workflows';
+
+function MetaSurgeryForm({ detail, onSaved }: { detail: WorkflowDetail; onSaved: () => void }) {
+  const [description, setDescription] = useState(detail.description ?? '');
+  const [whenToUse, setWhenToUse] = useState(detail.whenToUse ?? '');
+  const [phases, setPhases] = useState<WorkflowPhase[]>(detail.phases);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/workflows', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: detail.name, metaPatch: { description, whenToUse, phases } }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setNote('Saved ✓ (meta only — the body is untouched)');
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <p className="dim" style={{ marginTop: 0, fontSize: 13 }}>
+        Meta surgery: edits exactly the <span className="mono">export const meta</span> literal —
+        the script body is never touched.
+      </p>
+      <label className="field">
+        <span>Description</span>
+        <input value={description} onChange={(e) => setDescription(e.target.value)} />
+      </label>
+      <label className="field" style={{ marginTop: 8 }}>
+        <span>When to use</span>
+        <input value={whenToUse} onChange={(e) => setWhenToUse(e.target.value)} />
+      </label>
+      <span className="field" style={{ marginTop: 10, fontWeight: 600, fontSize: 12.5, color: 'var(--text-dim)' }}>
+        Phases
+      </span>
+      {phases.map((p, i) => (
+        <div className="row" key={i} style={{ marginTop: 6 }}>
+          <label className="field">
+            <span>Title</span>
+            <input value={p.title} onChange={(e) => setPhases(phases.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
+          </label>
+          <label className="field grow">
+            <span>Detail</span>
+            <input value={p.detail ?? ''} onChange={(e) => setPhases(phases.map((x, j) => (j === i ? { ...x, detail: e.target.value } : x)))} />
+          </label>
+          <button className="link-btn" style={{ marginTop: 18 }} onClick={() => setPhases(phases.filter((_, j) => j !== i))}>✕</button>
+        </div>
+      ))}
+      <div className="row" style={{ marginTop: 10 }}>
+        <button onClick={() => setPhases([...phases, { title: '' }])}>+ Add phase</button>
+        <button className="primary" onClick={save} disabled={busy}>
+          {busy ? 'Saving…' : 'Save meta'}
+        </button>
+        {note && <span className="save-note">{note}</span>}
+        {error && <span className="error-text">{error}</span>}
+      </div>
+    </div>
+  );
+}
+
+function RawSourceTab({ name, source, onSaved }: { name: string; source: string; onSaved: () => void }) {
+  const [text, setText] = useState(source);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setText(source), [source]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/workflows', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, rawSource: text }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setNote('Saved ✓');
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <textarea className="editor" style={{ minHeight: 420 }} value={text} spellCheck={false} onChange={(e) => setText(e.target.value)} />
+      <div className="row" style={{ marginTop: 8 }}>
+        <button className="primary" onClick={save} disabled={busy || text === source}>
+          {busy ? 'Saving…' : 'Save source'}
+        </button>
+        {note && <span className="save-note">{note}</span>}
+        {error && <span className="error-text">{error}</span>}
+      </div>
+    </div>
+  );
+}
 
 const NODE_W = 300;
 const NODE_H = 62;
@@ -112,12 +225,30 @@ function EditorInner() {
   const editName = useSearchParams().get('name');
 
   const [detail, setDetail] = useState<WorkflowDetail | null>(null);
+  const [source, setSource] = useState('');
+  const [viewTab, setViewTab] = useState<'canvas' | 'meta' | 'source'>('canvas');
   const [model, setModel] = useState<WorkflowModel | null>(null);
   const [selected, setSelected] = useState(0);
   const [skillNames, setSkillNames] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
+
+  const loadWorkflow = useCallback(() => {
+    if (!editName) return;
+    fetch(`/api/workflows?name=${encodeURIComponent(editName)}`)
+      .then((r) => r.json())
+      .then((b) => {
+        if (b.error) {
+          setError(b.error);
+          return;
+        }
+        setDetail(b.workflow);
+        setSource(b.source ?? '');
+        if (b.workflow.generated && b.workflow.model) setModel(b.workflow.model);
+      })
+      .catch((e) => setError(String(e)));
+  }, [editName]);
 
   useEffect(() => {
     fetch('/api/skills')
@@ -128,18 +259,8 @@ function EditorInner() {
       setModel({ name: '', description: '', steps: [emptyStep()] });
       return;
     }
-    fetch(`/api/workflows?name=${encodeURIComponent(editName)}`)
-      .then((r) => r.json())
-      .then((b) => {
-        if (b.error) {
-          setError(b.error);
-          return;
-        }
-        setDetail(b.workflow);
-        if (b.workflow.generated && b.workflow.model) setModel(b.workflow.model);
-      })
-      .catch((e) => setError(String(e)));
-  }, [editName]);
+    loadWorkflow();
+  }, [editName, loadWorkflow]);
 
   async function save() {
     if (!model) return;
@@ -178,13 +299,28 @@ function EditorInner() {
           <Link className="btn" href="/workflows">← All workflows</Link>
         </div>
         <p className="dim" style={{ fontSize: 13 }}>
-          Hand-written script — visualized from its declared <span className="mono">meta.phases</span>
-          {detail.compositions.length > 0 && <> · dashed nodes are workflows it invokes</>}. Structure
-          is edited in the file, not here.
+          Hand-written script — the canvas visualizes its declared{' '}
+          <span className="mono">meta.phases</span>
+          {detail.compositions.length > 0 && <> · dashed nodes are workflows it invokes</>}. Meta is
+          form-editable (surgical); the body is edited as raw source.
         </p>
-        <div className="card">
-          <WorkflowCanvas nodes={nodes} compositions={detail.compositions} />
+        <div className="tabs">
+          {(['canvas', 'meta', 'source'] as const).map((t) => (
+            <button key={t} className={viewTab === t ? 'active' : ''} onClick={() => setViewTab(t)}>
+              {t === 'canvas' ? 'Canvas' : t === 'meta' ? 'Meta' : 'Source'}
+            </button>
+          ))}
         </div>
+        {viewTab === 'canvas' && (
+          <div className="card">
+            <WorkflowCanvas nodes={nodes} compositions={detail.compositions} />
+          </div>
+        )}
+        {viewTab === 'meta' && <MetaSurgeryForm detail={detail} onSaved={loadWorkflow} />}
+        {viewTab === 'source' && (
+          <RawSourceTab name={detail.name} source={source} onSaved={loadWorkflow} />
+        )}
+        <HistoryPanel type="workflow" name={detail.name} onRestored={loadWorkflow} />
       </>
     );
   }
@@ -329,6 +465,7 @@ function EditorInner() {
         {savedNote && <span className="save-note">Saved to both locations ✓</span>}
         {error && <span className="error-text">{error}</span>}
       </div>
+      {editName && <HistoryPanel type="workflow" name={editName} onRestored={loadWorkflow} />}
     </>
   );
 }

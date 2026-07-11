@@ -30,6 +30,11 @@ iterate.
   composition edges on an SVG canvas, sync status against `~/.claude/workflows`) and build
   new sequential ones visually: wire steps to your skills and save a runnable, round-trippable
   Workflow-tool script to both managed locations. Execution stays in Claude Code.
+- **Toolkit versioning** — in git-tracked component directories, every save is a scoped
+  commit with a semver stamp (`versions.json`); history and loss-free forward-only
+  restore on every editor; hand-written workflows gain surgical meta and raw-source
+  editing; and a Ship button batches your UI edits into a gated PR without ever touching
+  your local branches.
 - **Settings** — sidebar-pinned system configuration: provider API keys stored in
   `~/.ai-toolkit-ui/settings.json` (owner-only permissions, outside any git repo), masked
   after save; plus the skills-directory path for the Skill Builder.

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-07-11
+
+### Added
+
+- **Toolkit versioning** (the repo as source of truth — ADR-0011): in git-tracked
+  component directories, every UI save (workflows, skills incl. quick-fixes, agents)
+  becomes a scoped commit — only the files the app wrote plus a per-directory
+  `versions.json` carrying auto-patched semver stamps. The app never switches branches
+  and never stages your unrelated dirty files. History panels on all three editors
+  (`git log --follow` + version stamps) with **forward-only restore**: old content is
+  committed forward as a new version, and a dirty file is auto-committed first so
+  nothing is ever lost. A **Ship** card in Settings pushes accumulated commits to the
+  `toolkit-ui-ship` side branch (no local branch movement; clears protected-main
+  rulesets) and opens a gated PR via `gh`, degrading to push-only without GitHub.
+  Non-git directories keep plain writes with all versioning UI hidden.
+- **Hand-written workflow editing**: view mode gains Canvas / Meta / Source tabs — a
+  surgical meta form (edits exactly the `meta` literal; the body is byte-untouched)
+  and a raw-source editor with a syntax gate, both versioned. Generated workflows
+  remain canvas-only.
+- **Version-aware sync badges**: workflow list badges show "v1.3.0 local · v1.2.0
+  deployed" instead of bare "differs", via `deployedVersion` recorded at sync time.
+
 ## [0.12.0] - 2026-07-11
 
 ### Added
@@ -212,6 +234,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.13.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.9.0...v0.10.0

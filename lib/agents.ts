@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import YAML from 'yaml';
 import { getAgentsDir } from './settings';
+import { versionedSave } from './versions';
 
 /**
  * Agents library: list, read, and write agent definitions — flat `*.md` files
@@ -222,5 +223,13 @@ export function writeAgent(form: AgentForm, opts: { mustExist: boolean }): Agent
 
   const frontYaml = YAML.stringify(front, { lineWidth: 0 });
   fs.writeFileSync(file, `---\n${frontYaml}---\n\n${body}`, 'utf8');
+
+  versionedSave(
+    agentsRoot(),
+    'agent',
+    form.name,
+    [`${form.name}.md`],
+    opts.mustExist ? 'edited' : 'created',
+  );
   return health;
 }
