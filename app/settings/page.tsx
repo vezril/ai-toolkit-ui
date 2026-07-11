@@ -119,10 +119,18 @@ function KeyCard({ provider, onChanged }: { provider: ProviderKeyState; onChange
   );
 }
 
-function SkillsDirCard({
+function DirCard({
+  bodyKey,
+  title,
+  hint,
+  placeholder,
   current,
   onChanged,
 }: {
+  bodyKey: 'skillsDir' | 'workflowsDir';
+  title: string;
+  hint: React.ReactNode;
+  placeholder: string;
   current: string | null;
   onChanged: () => void;
 }) {
@@ -141,7 +149,7 @@ function SkillsDirCard({
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skillsDir: dir }),
+        body: JSON.stringify({ [bodyKey]: dir }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -157,17 +165,16 @@ function SkillsDirCard({
 
   return (
     <div className="card">
-      <h3>Skills directory</h3>
+      <h3>{title}</h3>
       <p className="dim" style={{ margin: '4px 0 10px', fontSize: 13 }}>
-        Absolute path to the folder your Agent Skills live in — each skill is a subdirectory
-        containing a <span className="mono">SKILL.md</span>. Powers the Skills tool.
+        {hint}
       </p>
       <div className="row">
         <label className="field grow">
           <span>Path</span>
           <input
             value={value}
-            placeholder="/Users/cference/Code/claude-toolkit/skills"
+            placeholder={placeholder}
             spellCheck={false}
             onChange={(e) => setValue(e.target.value)}
           />
@@ -262,6 +269,7 @@ function RunGuardrailsCard({
 export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderKeyState[] | null>(null);
   const [skillsDir, setSkillsDir] = useState<string | null>(null);
+  const [workflowsDir, setWorkflowsDir] = useState<string | null>(null);
   const [guardrails, setGuardrails] = useState<{
     maxConcurrentRuns: number;
     runTimeoutMinutes: number;
@@ -278,6 +286,7 @@ export default function SettingsPage() {
         }
         setProviders(b.providers);
         setSkillsDir(b.skillsDir ?? null);
+        setWorkflowsDir(b.workflowsDir ?? null);
         setGuardrails(b.runGuardrails ?? null);
       })
       .catch((e) => setError(String(e)));
@@ -303,7 +312,36 @@ export default function SettingsPage() {
       {providers?.map((p) => <KeyCard provider={p} key={p.key} onChanged={load} />)}
 
       <h2>Skills</h2>
-      <SkillsDirCard current={skillsDir} onChanged={load} />
+      <DirCard
+        bodyKey="skillsDir"
+        title="Skills directory"
+        placeholder="/Users/cference/Code/claude-toolkit/skills"
+        hint={
+          <>
+            Absolute path to the folder your Agent Skills live in — each skill is a subdirectory
+            containing a <span className="mono">SKILL.md</span>. Powers the Skills tool.
+          </>
+        }
+        current={skillsDir}
+        onChanged={load}
+      />
+
+      <h2>Workflows</h2>
+      <DirCard
+        bodyKey="workflowsDir"
+        title="Workflows directory"
+        placeholder="/Users/cference/Code/claude-toolkit/workflows"
+        hint={
+          <>
+            Absolute path to the folder your Claude Code workflow scripts live in
+            (<span className="mono">*.js</span> with an <span className="mono">export const meta</span>{' '}
+            block). Saves also copy to <span className="mono">~/.claude/workflows</span> so new
+            workflows are immediately invokable.
+          </>
+        }
+        current={workflowsDir}
+        onChanged={load}
+      />
 
       <h2>Runs</h2>
       {guardrails && <RunGuardrailsCard current={guardrails} onChanged={load} />}

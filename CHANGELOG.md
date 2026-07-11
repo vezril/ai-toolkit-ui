@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-07-11
+
+### Added
+
+- **Workflow builder**: a Workflows tool for Claude Code workflow scripts. The list view
+  shows every script in a configurable workflows directory with meta, phase counts,
+  composition badges, and a sync-status badge against `~/.claude/workflows` (one-click
+  healing). Hand-written scripts visualize read-only on an SVG canvas — their declared
+  `meta.phases` as a node chain plus dashed edges to workflows they invoke. Builder-created
+  workflows round-trip exactly (the declarative step model is embedded in the file):
+  add/remove/reorder sequential steps, each with a title, instructions, and an optionally
+  wired skill (referenced by name + description in the generated agent prompt, with each
+  step receiving the previous step's result). Saves generate a runnable Workflow-tool
+  script — parse-validated, injection-safe codegen — written to both managed locations.
+  The UI never executes workflows; runs stay in Claude Code.
+- **Workflows directory setting** in Settings (validated path, third sandboxed root).
+
+### Follow-up (documented, not built)
+
+- Parallel fan-out steps (`parallel()` branches / per-item pipelines) — the step model
+  reserves room; v1 is deliberately sequential-only.
+
 ## [0.10.0] - 2026-07-11
 
 ### Added
@@ -173,6 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.11.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.7.0...v0.8.0
