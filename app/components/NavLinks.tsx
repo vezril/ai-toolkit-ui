@@ -30,6 +30,12 @@ const TOOLS: NavEntry[] = [
     icon: '▶',
     isActive: (p) => p.startsWith('/runs'),
   },
+  {
+    href: '/skills',
+    label: 'Skills',
+    icon: '⬡',
+    isActive: (p) => p.startsWith('/skills'),
+  },
 ];
 
 const SETTINGS: NavEntry = {

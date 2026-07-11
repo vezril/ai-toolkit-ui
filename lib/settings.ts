@@ -50,12 +50,16 @@ interface StoredKey {
 
 interface Settings {
   apiKeys: Record<string, StoredKey>;
+  skillsDir?: string;
 }
 
 function readSettings(): Settings {
   try {
     const parsed = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
-    return { apiKeys: parsed?.apiKeys ?? {} };
+    return {
+      apiKeys: parsed?.apiKeys ?? {},
+      skillsDir: typeof parsed?.skillsDir === 'string' ? parsed.skillsDir : undefined,
+    };
   } catch {
     return { apiKeys: {} };
   }
@@ -101,6 +105,32 @@ export function maskedKeys(): MaskedKey[] {
     last4: stored.key.slice(-4),
     setAt: stored.setAt,
   }));
+}
+
+/** Absolute path of the configured skills directory, or null when unset. */
+export function getSkillsDir(): string | null {
+  return readSettings().skillsDir ?? null;
+}
+
+/** Set (or clear, with '') the skills directory. Must be an absolute path to an existing directory. */
+export function setSkillsDir(dir: string): void {
+  const settings = readSettings();
+  const trimmed = dir.trim();
+  if (!trimmed) {
+    delete settings.skillsDir;
+    writeSettings(settings);
+    return;
+  }
+  if (!path.isAbsolute(trimmed)) throw new Error('Skills directory must be an absolute path');
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(trimmed);
+  } catch {
+    throw new Error(`Directory does not exist: ${trimmed}`);
+  }
+  if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
+  settings.skillsDir = trimmed;
+  writeSettings(settings);
 }
 
 /** Env-var map injected into spawned promptfoo runs (and nowhere else). */

@@ -18,7 +18,12 @@ iterate.
   a key in Settings and are injected into runs as environment variables only.
 - **Settings** — sidebar-pinned system configuration: provider API keys stored in
   `~/.ai-toolkit-ui/settings.json` (owner-only permissions, outside any git repo), masked
-  after save.
+  after save; plus the skills-directory path for the Skill Builder.
+- **Skill Builder** — browse, create, and edit Agent Skills (`SKILL.md`) in a configured
+  skills directory, with authoring guidance baked into the form (description length band,
+  trigger-phrase coaching, optional frontmatter fields) and structural health checks
+  (errors block saves, warnings inform; badges on the list view). Unknown frontmatter
+  survives edits untouched.
 - **Dashboard** — auto-discovers every promptfoo config in the target project and shows
   providers, grader, prompt files, and test counts.
 - **Config pages** — edit the config YAML, the prompt-under-test, and any referenced test-suite

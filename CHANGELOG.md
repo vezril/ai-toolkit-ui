@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-11
+
+### Added
+
+- **Skill Builder**: a Skills tool in the sidebar for browsing, creating, and editing
+  Agent Skills (`SKILL.md`) in a configurable skills directory. The editor coaches the
+  description (the field that decides triggering) with live length feedback against the
+  200–1500-char recommended band and the Agent Skills standard's 1024-char cap, exposes
+  the documented optional frontmatter (`disable-model-invocation`, `user-invocable`,
+  `allowed-tools`, `argument-hint`), and preserves any frontmatter fields it doesn't
+  model. A structural validator runs on save (errors block; warnings inform) and powers
+  per-skill health badges on the list view.
+- **Skills directory setting**: Settings gains a validated absolute-path field
+  (e.g. `~/Code/claude-toolkit/skills`); skill file access is sandboxed to that
+  directory, independent of the eval sandbox (ADR-0010).
+
 ## [0.3.0] - 2026-07-10
 
 ### Added
@@ -61,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.4.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vezril/ai-toolkit-ui/releases/tag/v0.1.0
