@@ -31,7 +31,12 @@ function Overview({ config }: { config: ConfigSummary }) {
 
       {config.coach.length > 0 && (
         <div className="card" style={{ borderColor: 'var(--running)' }}>
-          <h3 style={{ color: 'var(--running)' }}>Coach — {config.coach.length} structural tip{config.coach.length > 1 ? 's' : ''}</h3>
+          <div className="row spread">
+            <h3 style={{ color: 'var(--running)' }}>Coach — {config.coach.length} structural tip{config.coach.length > 1 ? 's' : ''}</h3>
+            {config.generated && (
+              <Link href={`/new?config=${encodeURIComponent(config.path)}`}>Refine in builder →</Link>
+            )}
+          </div>
           <ul className="dim" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
             {config.coach.map((f, i) => (
               <li key={i}>

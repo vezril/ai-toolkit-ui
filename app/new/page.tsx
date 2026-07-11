@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { coachFindings, type CoachCheck } from '@/lib/coach';
+import { SEED_PLACEHOLDER, coachFindings, type CoachCheck, type Finding } from '@/lib/coach';
 import type { ApiProviderOption, CheckDraft, EvalDraft, RunnerInfo, TestDraft } from '@/lib/evals';
 
 // Module-level stash for the guided-setup handoff: StrictMode double-invokes
@@ -37,8 +37,168 @@ function draftCoachInput(tests: TestDraft[]) {
   }));
 }
 
-function CoachPanel({ tests }: { tests: TestDraft[] }) {
-  const findings = coachFindings(draftCoachInput(tests));
+function linesOf(text: string): string[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim().replace(/^[-*•]\s*/, ''))
+    .filter(Boolean);
+}
+
+/** Append copies of checks to every test case in the draft. */
+function addChecksEverywhere(draft: EvalDraft, checks: CheckDraft[]): EvalDraft {
+  return {
+    ...draft,
+    tests: draft.tests.map((t) => ({ ...t, checks: [...t.checks, ...checks.map((c) => ({ ...c }))] })),
+  };
+}
+
+/** Which refinement form (if any) a coach finding maps to, by message identity. */
+function refinementKind(message: string): 'more-tests' | 'failure-guard' | 'deterministic' | 'placeholder' | null {
+  if (message.startsWith('Only one test case')) return 'more-tests';
+  if (message.startsWith('No failure-mode check')) return 'failure-guard';
+  if (message.startsWith('Every check needs a judge')) return 'deterministic';
+  if (message.startsWith('A test still uses the seeded placeholder')) return 'placeholder';
+  return null;
+}
+
+function RefinementForm({
+  kind,
+  draft,
+  onChange,
+  skillHints,
+}: {
+  kind: NonNullable<ReturnType<typeof refinementKind>>;
+  draft: EvalDraft;
+  onChange: (d: EvalDraft) => void;
+  skillHints: string[];
+}) {
+  const [a, setA] = useState('');
+  const [b, setB] = useState('');
+
+  if (kind === 'more-tests') {
+    const baseChecks = draft.tests[0]?.checks ?? [];
+    const submit = () => {
+      const additions: TestDraft[] = [];
+      if (a.trim()) additions.push({ description: 'Hard case', request: a, checks: baseChecks.map((c) => ({ ...c })) });
+      if (b.trim()) additions.push({ description: 'Ambiguous case', request: b, checks: baseChecks.map((c) => ({ ...c })) });
+      if (additions.length) onChange({ ...draft, tests: [...draft.tests, ...additions] });
+    };
+    return (
+      <div style={{ marginTop: 8 }}>
+        <label className="field">
+          <span>A hard case — stretches the prompt</span>
+          <textarea rows={2} value={a} onChange={(e) => setA(e.target.value)} />
+        </label>
+        <label className="field" style={{ marginTop: 6 }}>
+          <span>An ambiguous case — under-specified on purpose</span>
+          <textarea rows={2} value={b} onChange={(e) => setB(e.target.value)} />
+        </label>
+        <button className="primary" style={{ marginTop: 8 }} onClick={submit} disabled={!a.trim() && !b.trim()}>
+          Add test case{a.trim() && b.trim() ? 's' : ''}
+        </button>
+      </div>
+    );
+  }
+
+  if (kind === 'failure-guard' || kind === 'deterministic') {
+    const isGuard = kind === 'failure-guard';
+    const submit = () => {
+      const checks: CheckDraft[] = linesOf(a).map((text) => ({
+        kind: isGuard ? 'not-contains' : 'contains',
+        text,
+        ignoreCase: true,
+      }));
+      if (checks.length) onChange(addChecksEverywhere(draft, checks));
+    };
+    return (
+      <div style={{ marginTop: 8 }}>
+        <label className="field">
+          <span>
+            {isGuard
+              ? 'Text that must NEVER appear — one per line, added to every test case'
+              : 'Text a good answer always contains — one per line, added to every test case'}
+          </span>
+          <textarea
+            rows={2}
+            value={a}
+            placeholder={isGuard ? 'TODO\nAs an AI language model' : ''}
+            onChange={(e) => setA(e.target.value)}
+          />
+        </label>
+        <button className="primary" style={{ marginTop: 8 }} onClick={submit} disabled={!linesOf(a).length}>
+          Add check{linesOf(a).length > 1 ? 's' : ''}
+        </button>
+      </div>
+    );
+  }
+
+  // placeholder
+  const idx = draft.tests.findIndex((t) => t.request.includes(SEED_PLACEHOLDER));
+  const submit = () => {
+    if (!a.trim() || idx < 0) return;
+    onChange({ ...draft, tests: draft.tests.map((t, i) => (i === idx ? { ...t, request: a } : t)) });
+  };
+  return (
+    <div style={{ marginTop: 8 }}>
+      <label className="field">
+        <span>What would someone actually ask?</span>
+        <textarea rows={2} value={a} onChange={(e) => setA(e.target.value)} />
+      </label>
+      {skillHints.length > 0 && (
+        <div className="row" style={{ marginTop: 6 }}>
+          <span className="dim" style={{ fontSize: 12 }}>From the skill's own trigger phrases:</span>
+          {skillHints.map((h) => (
+            <button key={h} className="badge" style={{ cursor: 'pointer' }} onClick={() => setA(h)} title="Insert as a starting point">
+              {h.length > 48 ? `${h.slice(0, 48)}…` : h}
+            </button>
+          ))}
+        </div>
+      )}
+      <button className="primary" style={{ marginTop: 8 }} onClick={submit} disabled={!a.trim() || idx < 0}>
+        Replace placeholder
+      </button>
+    </div>
+  );
+}
+
+function CoachFindingRow({
+  finding,
+  draft,
+  onChange,
+  skillHints,
+}: {
+  finding: Finding;
+  draft: EvalDraft;
+  onChange: (d: EvalDraft) => void;
+  skillHints: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const kind = refinementKind(finding.message);
+  return (
+    <li style={{ marginBottom: 4 }}>
+      {finding.message} <span style={{ opacity: 0.7 }}>({finding.principle})</span>
+      {kind && (
+        <button className="link-btn" onClick={() => setOpen(!open)}>
+          {open ? 'close' : 'Refine…'}
+        </button>
+      )}
+      {kind && open && (
+        <RefinementForm kind={kind} draft={draft} onChange={onChange} skillHints={skillHints} />
+      )}
+    </li>
+  );
+}
+
+function CoachPanel({
+  draft,
+  onChange,
+  skillHints,
+}: {
+  draft: EvalDraft;
+  onChange: (d: EvalDraft) => void;
+  skillHints: string[];
+}) {
+  const findings = coachFindings(draftCoachInput(draft.tests));
   if (findings.length === 0) return null;
   return (
     <div className="card" style={{ borderColor: 'var(--running)' }}>
@@ -46,10 +206,14 @@ function CoachPanel({ tests }: { tests: TestDraft[] }) {
         Coach — {findings.length} structural tip{findings.length > 1 ? 's' : ''}
       </h3>
       <ul className="dim" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-        {findings.map((f, i) => (
-          <li key={i}>
-            {f.message} <span style={{ opacity: 0.7 }}>({f.principle})</span>
-          </li>
+        {findings.map((f) => (
+          <CoachFindingRow
+            finding={f}
+            draft={draft}
+            onChange={onChange}
+            skillHints={skillHints}
+            key={f.message}
+          />
         ))}
       </ul>
     </div>
@@ -303,6 +467,7 @@ function BuilderInner() {
 
   const [runners, setRunners] = useState<RunnerInfo[]>([]);
   const [apiProviders, setApiProviders] = useState<ApiProviderOption[]>([]);
+  const [skillHints, setSkillHints] = useState<string[]>([]);
   const [draft, setDraft] = useState<EvalDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -318,6 +483,7 @@ function BuilderInner() {
         }
         setRunners(b.runners);
         setApiProviders(b.apiProviders ?? []);
+        setSkillHints(b.skillHints ?? []);
 
         // Hydrate from the guided-setup wizard's handoff, if present.
         if (!editConfig && guided) {
@@ -673,7 +839,7 @@ function BuilderInner() {
           onRemove={() => setDraft({ ...draft, tests: draft.tests.filter((_, j) => j !== i) })}
         />
       ))}
-      <CoachPanel tests={draft.tests} />
+      <CoachPanel draft={draft} onChange={setDraft} skillHints={skillHints} />
 
       <div className="row">
         <button onClick={() => setDraft({ ...draft, tests: [...draft.tests, emptyTest()] })}>

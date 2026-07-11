@@ -15,7 +15,10 @@ iterate.
 - **Guided setup & eval coach** — a five-stage wizard (purpose → success → failure →
   evidence → calibration) turns answers into a well-formed draft, and a static coach
   grades every eval's structure (live in the builder, badges on the dashboard) with
-  advisory one-liners — methodology encoded in defaults, never blocking.
+  advisory one-liners — methodology encoded in defaults, never blocking. Content-gap
+  findings refine inline: answer a targeted question in the coach panel and the missing
+  structure appears in the draft (skill evals even hint the answer from the skill's own
+  trigger phrases).
 - **CLI runners + direct API providers** — evaluate via the target project's AI-CLI
   wrapper scripts (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) and/or
   directly via provider APIs (Anthropic, OpenAI, Google). API entries unlock when you add
