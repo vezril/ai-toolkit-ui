@@ -48,9 +48,20 @@ interface StoredKey {
   setAt: string; // ISO timestamp
 }
 
+export interface RunGuardrails {
+  maxConcurrentRuns: number; // integer ≥ 1
+  runTimeoutMinutes: number; // ≥ 0; 0 disables the timeout
+}
+
+export const DEFAULT_RUN_GUARDRAILS: RunGuardrails = {
+  maxConcurrentRuns: 2,
+  runTimeoutMinutes: 15,
+};
+
 interface Settings {
   apiKeys: Record<string, StoredKey>;
   skillsDir?: string;
+  runGuardrails?: Partial<RunGuardrails>;
 }
 
 function readSettings(): Settings {
@@ -59,6 +70,10 @@ function readSettings(): Settings {
     return {
       apiKeys: parsed?.apiKeys ?? {},
       skillsDir: typeof parsed?.skillsDir === 'string' ? parsed.skillsDir : undefined,
+      runGuardrails:
+        parsed?.runGuardrails && typeof parsed.runGuardrails === 'object'
+          ? parsed.runGuardrails
+          : undefined,
     };
   } catch {
     return { apiKeys: {} };
@@ -130,6 +145,37 @@ export function setSkillsDir(dir: string): void {
   }
   if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
   settings.skillsDir = trimmed;
+  writeSettings(settings);
+}
+
+/** Effective guardrails: stored values over defaults. Read at each run start. */
+export function getRunGuardrails(): RunGuardrails {
+  const stored = readSettings().runGuardrails;
+  return {
+    maxConcurrentRuns:
+      typeof stored?.maxConcurrentRuns === 'number'
+        ? stored.maxConcurrentRuns
+        : DEFAULT_RUN_GUARDRAILS.maxConcurrentRuns,
+    runTimeoutMinutes:
+      typeof stored?.runTimeoutMinutes === 'number'
+        ? stored.runTimeoutMinutes
+        : DEFAULT_RUN_GUARDRAILS.runTimeoutMinutes,
+  };
+}
+
+export function setRunGuardrails(g: Partial<RunGuardrails>): void {
+  if (g.maxConcurrentRuns !== undefined) {
+    if (!Number.isInteger(g.maxConcurrentRuns) || g.maxConcurrentRuns < 1) {
+      throw new Error('Max concurrent runs must be a whole number of at least 1');
+    }
+  }
+  if (g.runTimeoutMinutes !== undefined) {
+    if (typeof g.runTimeoutMinutes !== 'number' || !isFinite(g.runTimeoutMinutes) || g.runTimeoutMinutes < 0) {
+      throw new Error('Run timeout must be 0 (disabled) or a positive number of minutes');
+    }
+  }
+  const settings = readSettings();
+  settings.runGuardrails = { ...getRunGuardrails(), ...g };
   writeSettings(settings);
 }
 

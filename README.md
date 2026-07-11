@@ -37,7 +37,9 @@ iterate.
 - **Config pages** — edit the config YAML, the prompt-under-test, and any referenced test-suite
   files in the browser; an Overview tab summarizes tests with per-assertion thresholds, weights,
   and metrics.
-- **Run evals** — one click spawns `promptfoo eval --no-cache` with a live-streaming log.
+- **Run evals** — one click spawns `promptfoo eval --no-cache` with a live-streaming log,
+  guarded against runaway spend: one in-flight run per config, a global concurrency cap,
+  and a hung-run timeout that reaps the whole process tree (all tunable in Settings).
 - **Results viewer** — per-test pass/fail with per-dimension assertion scores, judge reasons,
   and expandable model output.
 - **Run history** — kept in `eval-runs/` inside the target project (gitignore it there).

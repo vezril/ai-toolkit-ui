@@ -189,9 +189,83 @@ function SkillsDirCard({
   );
 }
 
+function RunGuardrailsCard({
+  current,
+  onChanged,
+}: {
+  current: { maxConcurrentRuns: number; runTimeoutMinutes: number };
+  onChanged: () => void;
+}) {
+  const [cap, setCap] = useState(String(current.maxConcurrentRuns));
+  const [timeout_, setTimeout_] = useState(String(current.runTimeoutMinutes));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCap(String(current.maxConcurrentRuns));
+    setTimeout_(String(current.runTimeoutMinutes));
+  }, [current]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runGuardrails: { maxConcurrentRuns: Number(cap), runTimeoutMinutes: Number(timeout_) },
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setNote('Saved ✓');
+      setTimeout(() => setNote(null), 2500);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Run guardrails</h3>
+      <p className="dim" style={{ margin: '4px 0 10px', fontSize: 13 }}>
+        Bounds on in-flight eval runs — runs invoke paid AI services. Applied to runs started
+        after saving; one run per config is always enforced.
+      </p>
+      <div className="row">
+        <label className="field narrow">
+          <span>Max concurrent runs</span>
+          <input type="number" min={1} step={1} value={cap} onChange={(e) => setCap(e.target.value)} />
+        </label>
+        <label className="field narrow">
+          <span>Timeout (minutes, 0 = off)</span>
+          <input type="number" min={0} step={1} value={timeout_} onChange={(e) => setTimeout_(e.target.value)} />
+        </label>
+        <span className="row" style={{ paddingTop: 18 }}>
+          <button className="primary" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+          {note && <span className="save-note">{note}</span>}
+        </span>
+      </div>
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderKeyState[] | null>(null);
   const [skillsDir, setSkillsDir] = useState<string | null>(null);
+  const [guardrails, setGuardrails] = useState<{
+    maxConcurrentRuns: number;
+    runTimeoutMinutes: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -204,6 +278,7 @@ export default function SettingsPage() {
         }
         setProviders(b.providers);
         setSkillsDir(b.skillsDir ?? null);
+        setGuardrails(b.runGuardrails ?? null);
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -229,6 +304,9 @@ export default function SettingsPage() {
 
       <h2>Skills</h2>
       <SkillsDirCard current={skillsDir} onChanged={load} />
+
+      <h2>Runs</h2>
+      {guardrails && <RunGuardrailsCard current={guardrails} onChanged={load} />}
     </>
   );
 }
