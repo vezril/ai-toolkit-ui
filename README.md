@@ -8,10 +8,14 @@ iterate.
 ## Features
 
 - **Eval builder** — create a new prompt evaluation from a form: write the prompt, add
-  example inputs with plain-English checks (text-contains and AI-judge criteria), toggle
-  models on/off with per-model settings, then save & run. The promptfoo YAML is generated
-  under `evals/` in the target project; builder-created evals round-trip back into the
-  form for editing.
+  example inputs with plain-English checks (text-contains, must-NOT-contain, and AI-judge
+  criteria), toggle models on/off with per-model settings, then save & run. The promptfoo
+  YAML is generated under `evals/` in the target project; builder-created evals round-trip
+  back into the form for editing.
+- **Guided setup & eval coach** — a five-stage wizard (purpose → success → failure →
+  evidence → calibration) turns answers into a well-formed draft, and a static coach
+  grades every eval's structure (live in the builder, badges on the dashboard) with
+  advisory one-liners — methodology encoded in defaults, never blocking.
 - **CLI runners + direct API providers** — evaluate via the target project's AI-CLI
   wrapper scripts (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) and/or
   directly via provider APIs (Anthropic, OpenAI, Google). API entries unlock when you add

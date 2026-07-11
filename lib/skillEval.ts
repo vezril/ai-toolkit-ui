@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { SEED_PLACEHOLDER } from './coach';
 import { EVALS_DIR, draftToFiles, isGeneratedConfig, type EvalDraft } from './evals';
 import { REPO_ROOT, resolveRepoPath } from './paths';
 import { getSkillsDir } from './settings';
@@ -123,7 +124,7 @@ export function createOrSyncSkillEval(
       tests: [
         {
           description: 'Starter test — replace with a realistic scenario',
-          request: '(replace with a realistic request this skill should handle)',
+          request: SEED_PLACEHOLDER,
           checks: [
             {
               kind: 'rubric',

@@ -33,9 +33,14 @@ export default function Dashboard() {
             loop: edit → run → read per-dimension results → iterate.
           </p>
         </div>
-        <Link className="btn primary" href="/new">
-          + New evaluation
-        </Link>
+        <span className="row">
+          <Link className="btn" href="/guide" title="Five quick prompts that leave behind a well-formed eval">
+            ✦ Guided setup
+          </Link>
+          <Link className="btn primary" href="/new">
+            + New evaluation
+          </Link>
+        </span>
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -66,6 +71,18 @@ export default function Dashboard() {
           </div>
           <div className="row">
             <span className="badge">{c.tests.length} tests</span>
+            {c.coach.length === 0 ? (
+              <span className="badge pass" title="No structural findings">
+                ✓ structure
+              </span>
+            ) : (
+              <span
+                className="badge running"
+                title={c.coach.map((f) => `• ${f.message}`).join('\n')}
+              >
+                {c.coach.length} tip{c.coach.length > 1 ? 's' : ''}
+              </span>
+            )}
             {c.providers.map((p) => (
               <span className="badge" key={`${p.id}-${p.label ?? ''}`}>
                 provider: {p.label ?? (p.model ? `${p.id} (${p.model})` : p.id)}

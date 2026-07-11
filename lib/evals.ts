@@ -89,6 +89,7 @@ const API_PROVIDER_ID = new RegExp(`^(${API_PROVIDERS.map((p) => p.key).join('|'
 
 export type CheckDraft =
   | { kind: 'contains'; text: string; ignoreCase: boolean }
+  | { kind: 'not-contains'; text: string; ignoreCase: boolean }
   | { kind: 'rubric'; criterion: string; metric?: string; threshold: number; weight: number }
   // Blind A/B winner: the judge compares all prompt variants' outputs for the
   // test (unlabeled) and picks the one best satisfying the criterion.
@@ -159,7 +160,7 @@ export function validateDraft(draft: EvalDraft): string[] {
     if (!t.request?.trim()) problems.push(`Test ${i + 1}: fill in the example input.`);
     if (!t.checks?.length) problems.push(`Test ${i + 1}: add at least one check.`);
     t.checks?.forEach((c, j) => {
-      if (c.kind === 'contains' && !c.text?.trim())
+      if ((c.kind === 'contains' || c.kind === 'not-contains') && !c.text?.trim())
         problems.push(`Test ${i + 1}, check ${j + 1}: fill in the text to look for.`);
       if (c.kind === 'rubric' && !c.criterion?.trim())
         problems.push(`Test ${i + 1}, check ${j + 1}: describe the criterion for the AI judge.`);
@@ -184,6 +185,9 @@ function checkToAssert(check: CheckDraft): Record<string, unknown> {
   if (check.kind === 'contains') {
     return { type: check.ignoreCase ? 'icontains' : 'contains', value: check.text };
   }
+  if (check.kind === 'not-contains') {
+    return { type: check.ignoreCase ? 'not-icontains' : 'not-contains', value: check.text };
+  }
   if (check.kind === 'ab-winner') {
     return { type: 'select-best', value: check.criterion };
   }
@@ -200,6 +204,13 @@ function checkToAssert(check: CheckDraft): Record<string, unknown> {
 function assertToCheck(a: any): CheckDraft | null {
   if (a?.type === 'contains' || a?.type === 'icontains') {
     return { kind: 'contains', text: String(a.value ?? ''), ignoreCase: a.type === 'icontains' };
+  }
+  if (a?.type === 'not-contains' || a?.type === 'not-icontains') {
+    return {
+      kind: 'not-contains',
+      text: String(a.value ?? ''),
+      ignoreCase: a.type === 'not-icontains',
+    };
   }
   if (a?.type === 'llm-rubric') {
     return {

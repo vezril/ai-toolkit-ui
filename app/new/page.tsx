@@ -3,7 +3,58 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { coachFindings, type CoachCheck } from '@/lib/coach';
 import type { ApiProviderOption, CheckDraft, EvalDraft, RunnerInfo, TestDraft } from '@/lib/evals';
+
+// Module-level stash for the guided-setup handoff: StrictMode double-invokes
+// effects in dev, so a read-and-delete of sessionStorage alone loses the draft
+// on the second pass. Fresh sessionStorage always wins over the cache.
+let guidedCache: EvalDraft | null = null;
+function takeGuidedDraft(): EvalDraft | null {
+  const stored = sessionStorage.getItem('guided-draft');
+  if (stored) {
+    sessionStorage.removeItem('guided-draft');
+    try {
+      guidedCache = JSON.parse(stored) as EvalDraft;
+    } catch {
+      guidedCache = null;
+    }
+  }
+  return guidedCache;
+}
+
+function draftCoachInput(tests: TestDraft[]) {
+  return tests.map((t) => ({
+    request: t.request,
+    checks: t.checks.map(
+      (c): CoachCheck =>
+        c.kind === 'rubric'
+          ? { kind: 'rubric', criterion: c.criterion, threshold: c.threshold, weight: c.weight }
+          : c.kind === 'ab-winner'
+            ? { kind: 'ab-winner', criterion: c.criterion }
+            : { kind: c.kind },
+    ),
+  }));
+}
+
+function CoachPanel({ tests }: { tests: TestDraft[] }) {
+  const findings = coachFindings(draftCoachInput(tests));
+  if (findings.length === 0) return null;
+  return (
+    <div className="card" style={{ borderColor: 'var(--running)' }}>
+      <h3 style={{ color: 'var(--running)' }}>
+        Coach — {findings.length} structural tip{findings.length > 1 ? 's' : ''}
+      </h3>
+      <ul className="dim" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+        {findings.map((f, i) => (
+          <li key={i}>
+            {f.message} <span style={{ opacity: 0.7 }}>({f.principle})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 const EXAMPLE_PROMPT = `You are an expert Product Owner.
 
@@ -49,21 +100,23 @@ function CheckEditor({
         <span className="badge">
           {check.kind === 'contains'
             ? 'Text check'
-            : check.kind === 'ab-winner'
-              ? 'Blind A/B winner'
-              : 'AI judge'}
+            : check.kind === 'not-contains'
+              ? 'Must NOT contain'
+              : check.kind === 'ab-winner'
+                ? 'Blind A/B winner'
+                : 'AI judge'}
         </span>
         <button className="link-btn" onClick={onRemove} title="Remove this check">
           ✕
         </button>
       </div>
-      {check.kind === 'contains' ? (
+      {check.kind === 'contains' || check.kind === 'not-contains' ? (
         <div className="row" style={{ marginTop: 6 }}>
           <label className="field grow">
-            <span>Response must contain</span>
+            <span>{check.kind === 'contains' ? 'Response must contain' : 'Response must NOT contain'}</span>
             <input
               value={check.text}
-              placeholder="e.g. requirement"
+              placeholder={check.kind === 'contains' ? 'e.g. requirement' : 'e.g. TODO'}
               onChange={(e) => onChange({ ...check, text: e.target.value })}
             />
           </label>
@@ -201,6 +254,16 @@ function TestEditor({
             onClick={() =>
               onChange({
                 ...test,
+                checks: [...test.checks, { kind: 'not-contains', text: '', ignoreCase: true }],
+              })
+            }
+          >
+            + Must NOT contain
+          </button>
+          <button
+            onClick={() =>
+              onChange({
+                ...test,
                 checks: [
                   ...test.checks,
                   { kind: 'rubric', criterion: '', metric: '', threshold: 0.7, weight: 1 },
@@ -234,7 +297,9 @@ function TestEditor({
 
 function BuilderInner() {
   const router = useRouter();
-  const editConfig = useSearchParams().get('config');
+  const searchParams = useSearchParams();
+  const editConfig = searchParams.get('config');
+  const guided = searchParams.get('guided') === '1';
 
   const [runners, setRunners] = useState<RunnerInfo[]>([]);
   const [apiProviders, setApiProviders] = useState<ApiProviderOption[]>([]);
@@ -253,6 +318,37 @@ function BuilderInner() {
         }
         setRunners(b.runners);
         setApiProviders(b.apiProviders ?? []);
+
+        // Hydrate from the guided-setup wizard's handoff, if present.
+        if (!editConfig && guided) {
+          try {
+            const taken = takeGuidedDraft();
+            if (taken) {
+              const guidedDraft = { ...taken };
+              if (!guidedDraft.models?.length) {
+                guidedDraft.models = [
+                  ...b.runners.map((r: RunnerInfo) => ({
+                    runner: r.key,
+                    kind: 'cli' as const,
+                    model: r.defaultModel,
+                    enabled: r.key === 'devin',
+                  })),
+                  ...(b.apiProviders ?? []).map((p: ApiProviderOption) => ({
+                    runner: p.key,
+                    kind: 'api' as const,
+                    model: p.models[0],
+                    enabled: false,
+                  })),
+                ];
+              }
+              setDraft(guidedDraft);
+              return;
+            }
+          } catch {
+            // fall through to the default empty draft
+          }
+        }
+
         setDraft(
           b.draft ?? {
             name: '',
@@ -277,7 +373,7 @@ function BuilderInner() {
         );
       })
       .catch((e) => setError(String(e)));
-  }, [editConfig]);
+  }, [editConfig, guided]);
 
   async function save(runAfter: boolean) {
     if (!draft) return;
@@ -577,6 +673,8 @@ function BuilderInner() {
           onRemove={() => setDraft({ ...draft, tests: draft.tests.filter((_, j) => j !== i) })}
         />
       ))}
+      <CoachPanel tests={draft.tests} />
+
       <div className="row">
         <button onClick={() => setDraft({ ...draft, tests: [...draft.tests, emptyTest()] })}>
           + Add test case
