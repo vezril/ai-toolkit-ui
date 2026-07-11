@@ -1,5 +1,8 @@
 # app-settings
 
+## Purpose
+System configuration surface and store: provider API keys, component directory roots, and run guardrails, persisted app-level outside any git repo.
+
 ## Requirements
 
 ### Requirement: Settings page for system configuration

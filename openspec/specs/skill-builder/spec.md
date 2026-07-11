@@ -1,7 +1,8 @@
 # skill-builder
 
+## Purpose
+Authoring, validation, quick-fixing, and eval-bridging for Agent Skills in the configured skills directory, with full-fidelity round-trips of hand-authored files.
 ## Requirements
-
 ### Requirement: Skills tool lists the configured directory's skills
 The app SHALL provide a Skills page at `/skills` listing every direct child directory of the configured skills directory that contains a `SKILL.md`, showing each skill's name, a description preview, and structural-health badges (valid / has warnings / has errors). When no skills directory is configured, the page SHALL show a prompt linking to Settings instead of a listing.
 
@@ -117,3 +118,11 @@ Each fix preview SHALL carry a hash of the file content it was computed against;
 #### Scenario: Concurrent edit guarded
 - **WHEN** a fix is previewed, the skill is edited elsewhere, and Apply is then clicked
 - **THEN** the API rejects the apply naming the stale preview and no write occurs
+
+### Requirement: Skill saves are versioned with history and restore
+When the skills directory resolves inside a git repository, skill editor saves (including quick-fix applies) SHALL go through the toolkit-versioning choreography, and the skill editor SHALL offer the history/restore panel per the `toolkit-versioning` capability.
+
+#### Scenario: Quick-fix apply is versioned
+- **WHEN** a quick-fix is applied to a skill in a git-tracked skills directory
+- **THEN** a commit exists containing exactly the skill file and `versions.json`, with a bumped patch version
+

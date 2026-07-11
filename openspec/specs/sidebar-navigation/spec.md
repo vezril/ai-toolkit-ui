@@ -1,5 +1,8 @@
 # sidebar-navigation
 
+## Purpose
+The persistent left sidebar hosting all tool navigation with active-state indication and responsive collapse.
+
 ## Requirements
 
 ### Requirement: Persistent left sidebar hosts all tool navigation
