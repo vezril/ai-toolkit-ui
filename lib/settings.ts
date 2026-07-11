@@ -62,6 +62,7 @@ interface Settings {
   apiKeys: Record<string, StoredKey>;
   skillsDir?: string;
   workflowsDir?: string;
+  agentsDir?: string;
   runGuardrails?: Partial<RunGuardrails>;
 }
 
@@ -72,6 +73,7 @@ function readSettings(): Settings {
       apiKeys: parsed?.apiKeys ?? {},
       skillsDir: typeof parsed?.skillsDir === 'string' ? parsed.skillsDir : undefined,
       workflowsDir: typeof parsed?.workflowsDir === 'string' ? parsed.workflowsDir : undefined,
+      agentsDir: typeof parsed?.agentsDir === 'string' ? parsed.agentsDir : undefined,
       runGuardrails:
         parsed?.runGuardrails && typeof parsed.runGuardrails === 'object'
           ? parsed.runGuardrails
@@ -173,6 +175,32 @@ export function setWorkflowsDir(dir: string): void {
   }
   if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
   settings.workflowsDir = trimmed;
+  writeSettings(settings);
+}
+
+/** Absolute path of the configured agents directory, or null when unset. */
+export function getAgentsDir(): string | null {
+  return readSettings().agentsDir ?? null;
+}
+
+/** Set (or clear, with '') the agents directory. Must be an absolute path to an existing directory. */
+export function setAgentsDir(dir: string): void {
+  const settings = readSettings();
+  const trimmed = dir.trim();
+  if (!trimmed) {
+    delete settings.agentsDir;
+    writeSettings(settings);
+    return;
+  }
+  if (!path.isAbsolute(trimmed)) throw new Error('Agents directory must be an absolute path');
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(trimmed);
+  } catch {
+    throw new Error(`Directory does not exist: ${trimmed}`);
+  }
+  if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
+  settings.agentsDir = trimmed;
   writeSettings(settings);
 }
 

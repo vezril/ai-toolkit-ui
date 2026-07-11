@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   API_PROVIDERS,
   deleteApiKey,
+  getAgentsDir,
   getRunGuardrails,
   getSkillsDir,
   getWorkflowsDir,
   maskedKeys,
+  setAgentsDir,
   setApiKey,
   setRunGuardrails,
   setSkillsDir,
@@ -33,6 +35,7 @@ export async function GET() {
     providers,
     skillsDir: getSkillsDir(),
     workflowsDir: getWorkflowsDir(),
+    agentsDir: getAgentsDir(),
     runGuardrails: getRunGuardrails(),
   });
 }
@@ -44,6 +47,7 @@ export async function PUT(req: NextRequest) {
     key?: string;
     skillsDir?: string;
     workflowsDir?: string;
+    agentsDir?: string;
     runGuardrails?: Partial<RunGuardrails>;
   };
   try {
@@ -63,6 +67,10 @@ export async function PUT(req: NextRequest) {
     if (typeof body.workflowsDir === 'string') {
       setWorkflowsDir(body.workflowsDir);
       return NextResponse.json({ ok: true, workflowsDir: getWorkflowsDir() });
+    }
+    if (typeof body.agentsDir === 'string') {
+      setAgentsDir(body.agentsDir);
+      return NextResponse.json({ ok: true, agentsDir: getAgentsDir() });
     }
     if (!body.provider || typeof body.key !== 'string') {
       return NextResponse.json({ error: 'provider and key (or skillsDir) required' }, { status: 400 });

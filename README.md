@@ -23,6 +23,9 @@ iterate.
   wrapper scripts (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) and/or
   directly via provider APIs (Anthropic, OpenAI, Google). API entries unlock when you add
   a key in Settings and are injected into runs as environment variables only.
+- **Agents tool** — browse and edit agent definitions with the same coached descriptions
+  and full-fidelity round-trips as skills, plus deploy badges that know a symlink from a
+  drifting copy in `~/.claude/agents`.
 - **Workflow builder** — visualize Claude Code workflow scripts (declared phases +
   composition edges on an SVG canvas, sync status against `~/.claude/workflows`) and build
   new sequential ones visually: wire steps to your skills and save a runnable, round-trippable
