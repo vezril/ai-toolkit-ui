@@ -22,4 +22,4 @@
 
 - [x] 4.1 PRD §11 delta row for `add-skill-builder`; ADR-0010 (second sandboxed root for the user-configured skills directory; parse-merge-serialize round-trip stance vs ADR-0004's bounded fidelity)
 - [x] 4.2 Bump to 0.4.0; CHANGELOG entry; README features section
-- [ ] 4.3 Full verify pass over the spec scenarios, feature-branch PR, human gate, merge, tag v0.4.0, archive the change (sync deltas into living specs)
+- [x] 4.3 Full verify pass over the spec scenarios, feature-branch PR, human gate, merge, tag v0.4.0, archive the change (sync deltas into living specs)
