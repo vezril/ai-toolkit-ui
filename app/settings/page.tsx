@@ -119,14 +119,92 @@ function KeyCard({ provider, onChanged }: { provider: ProviderKeyState; onChange
   );
 }
 
+function SkillsDirCard({
+  current,
+  onChanged,
+}: {
+  current: string | null;
+  onChanged: () => void;
+}) {
+  const [value, setValue] = useState(current ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => setValue(current ?? ''), [current]);
+
+  async function save(dir: string) {
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillsDir: dir }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setNote(dir ? 'Saved ✓' : 'Cleared ✓');
+      setTimeout(() => setNote(null), 2500);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Skills directory</h3>
+      <p className="dim" style={{ margin: '4px 0 10px', fontSize: 13 }}>
+        Absolute path to the folder your Agent Skills live in — each skill is a subdirectory
+        containing a <span className="mono">SKILL.md</span>. Powers the Skills tool.
+      </p>
+      <div className="row">
+        <label className="field grow">
+          <span>Path</span>
+          <input
+            value={value}
+            placeholder="/Users/cference/Code/claude-toolkit/skills"
+            spellCheck={false}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </label>
+        <span className="row" style={{ paddingTop: 18 }}>
+          <button className="primary" onClick={() => save(value)} disabled={busy || !value.trim()}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+          {current && (
+            <button onClick={() => save('')} disabled={busy}>
+              Clear
+            </button>
+          )}
+        </span>
+      </div>
+      {note && <p className="save-note">{note}</p>}
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderKeyState[] | null>(null);
+  const [skillsDir, setSkillsDir] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetch('/api/settings')
       .then((r) => r.json())
-      .then((b) => (b.error ? setError(b.error) : setProviders(b.providers)))
+      .then((b) => {
+        if (b.error) {
+          setError(b.error);
+          return;
+        }
+        setProviders(b.providers);
+        setSkillsDir(b.skillsDir ?? null);
+      })
       .catch((e) => setError(String(e)));
   }, []);
 
@@ -148,6 +226,9 @@ export default function SettingsPage() {
       {error && <p className="error-text">{error}</p>}
       {!providers && !error && <p className="dim">Loading…</p>}
       {providers?.map((p) => <KeyCard provider={p} key={p.key} onChanged={load} />)}
+
+      <h2>Skills</h2>
+      <SkillsDirCard current={skillsDir} onChanged={load} />
     </>
   );
 }

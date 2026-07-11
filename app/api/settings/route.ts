@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { API_PROVIDERS, deleteApiKey, maskedKeys, setApiKey } from '@/lib/settings';
+import {
+  API_PROVIDERS,
+  deleteApiKey,
+  getSkillsDir,
+  maskedKeys,
+  setApiKey,
+  setSkillsDir,
+} from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,21 +24,25 @@ export async function GET() {
       setAt: stored?.setAt ?? null,
     };
   });
-  return NextResponse.json({ providers });
+  return NextResponse.json({ providers, skillsDir: getSkillsDir() });
 }
 
-/** PUT /api/settings — upsert one provider key: { provider, key } */
+/** PUT /api/settings — upsert one provider key ({ provider, key }) or the skills directory ({ skillsDir }) */
 export async function PUT(req: NextRequest) {
-  let body: { provider?: string; key?: string };
+  let body: { provider?: string; key?: string; skillsDir?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 });
   }
-  if (!body.provider || typeof body.key !== 'string') {
-    return NextResponse.json({ error: 'provider and key required' }, { status: 400 });
-  }
   try {
+    if (typeof body.skillsDir === 'string') {
+      setSkillsDir(body.skillsDir);
+      return NextResponse.json({ ok: true, skillsDir: getSkillsDir() });
+    }
+    if (!body.provider || typeof body.key !== 'string') {
+      return NextResponse.json({ error: 'provider and key (or skillsDir) required' }, { status: 400 });
+    }
     setApiKey(body.provider, body.key);
     return NextResponse.json({ ok: true });
   } catch (err) {
