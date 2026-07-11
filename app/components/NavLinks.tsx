@@ -31,16 +31,16 @@ const TOOLS: NavEntry[] = [
     isActive: (p) => p.startsWith('/runs'),
   },
   {
-    href: '/skills',
-    label: 'Skills',
-    icon: '⬡',
-    isActive: (p) => p.startsWith('/skills'),
-  },
-  {
     href: '/agents',
     label: 'Agents',
     icon: '⚇',
     isActive: (p) => p.startsWith('/agents'),
+  },
+  {
+    href: '/skills',
+    label: 'Skills',
+    icon: '⬡',
+    isActive: (p) => p.startsWith('/skills'),
   },
   {
     href: '/workflows',
