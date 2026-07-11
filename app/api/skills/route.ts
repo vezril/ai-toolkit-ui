@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isConfigured, listSkills, readSkill, writeSkill, type SkillForm } from '@/lib/skills';
+import {
+  isConfigured,
+  listSkills,
+  readSkill,
+  skillHealth,
+  writeSkill,
+  type SkillForm,
+} from '@/lib/skills';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +15,13 @@ export async function GET(req: NextRequest) {
   try {
     if (!isConfigured()) return NextResponse.json({ configured: false, skills: [] });
     const name = req.nextUrl.searchParams.get('name');
-    if (name) return NextResponse.json({ configured: true, skill: readSkill(name) });
+    if (name) {
+      return NextResponse.json({
+        configured: true,
+        skill: readSkill(name),
+        health: skillHealth(name),
+      });
+    }
     return NextResponse.json({ configured: true, skills: listSkills() });
   } catch (err) {
     return NextResponse.json(

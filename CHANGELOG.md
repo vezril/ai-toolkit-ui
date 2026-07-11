@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-11
+
+### Added
+
+- **Skill quick-fixes**: mechanical health findings now carry one-click fixes in a new
+  Health panel on the skill editor — quoting the scalar that breaks frontmatter parsing
+  (offered only when the repair verifiably re-parses), syncing the frontmatter name to
+  the directory, and repairing unresolved `[[links]]` (replacement suggested only within
+  edit distance 2; hopeless links offer unwrapping to plain text). Every fix previews as
+  a line-scoped inline diff and writes nothing until Apply; previews are content-hash
+  guarded (a stale preview cannot apply), and every write is post-verified with automatic
+  revert on failure. Judgment-class findings (description length, empty body) deliberately
+  offer no fix, and the app still makes no direct model calls.
+
 ## [0.8.0] - 2026-07-11
 
 ### Added
@@ -142,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.9.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.5.0...v0.6.0

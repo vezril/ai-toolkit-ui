@@ -3,7 +3,134 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import type { SkillForm } from '@/lib/skills';
+import type { SkillHealth, SkillForm } from '@/lib/skills';
+import type { SkillFix } from '@/lib/skillFixes';
+
+function FixRow({
+  fix,
+  disabled,
+  onApply,
+}: {
+  fix: SkillFix;
+  disabled: boolean;
+  onApply: (fixId: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="check-row">
+      <div className="row spread">
+        <span>
+          <b>{fix.finding}</b>
+          <span className="dim" style={{ marginLeft: 8, fontSize: 13 }}>{fix.action}</span>
+        </span>
+        <button className="link-btn" onClick={() => setOpen(!open)}>
+          {open ? 'Hide diff' : 'Fix…'}
+        </button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          <div className="output-block" style={{ maxHeight: 160 }}>
+            {fix.changes.map((c, i) => (
+              <div key={i}>
+                {c.before !== null && (
+                  <div style={{ color: 'var(--fail)' }}>
+                    − {c.line}: {c.before}
+                  </div>
+                )}
+                <div style={{ color: 'var(--pass)' }}>
+                  + {c.line}: {c.after}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button
+              className="primary"
+              disabled={busy || disabled}
+              title={disabled ? 'Save or discard your edits first — applying reloads the editor' : undefined}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await onApply(fix.fixId);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? 'Applying…' : 'Apply'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HealthPanel({
+  name,
+  health,
+  fixes,
+  contentHash,
+  formDirty,
+  onApplied,
+  onError,
+}: {
+  name: string;
+  health: SkillHealth;
+  fixes: SkillFix[];
+  contentHash: string;
+  formDirty: boolean;
+  onApplied: () => void;
+  onError: (msg: string) => void;
+}) {
+  // A finding is covered by a fix when its message matches the fix's concern.
+  const coveredBy = (message: string) =>
+    fixes.some((f) => {
+      if (f.fixId === 'quote-frontmatter') return message.includes('does not parse');
+      if (f.fixId === 'sync-name') return message.includes('must equal the directory name');
+      const link = f.fixId.match(/^link-(?:replace|unwrap):(.+)$/)?.[1];
+      return link ? message.includes(`[[${link}]]`) : false;
+    });
+  const plain = [
+    ...health.errors.map((m) => ({ m, kind: 'error' })),
+    ...health.warnings.map((m) => ({ m, kind: 'warning' })),
+  ].filter(({ m }) => !coveredBy(m));
+
+  if (health.errors.length + health.warnings.length === 0 && fixes.length === 0) return null;
+
+  async function apply(fixId: string) {
+    const res = await fetch('/api/skills/fixes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, fixId, contentHash }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      onError(body.error ?? `HTTP ${res.status}`);
+      return;
+    }
+    onApplied();
+  }
+
+  return (
+    <div className="card" style={{ borderColor: 'var(--running)' }}>
+      <h3 style={{ color: 'var(--running)' }}>Health</h3>
+      {fixes.map((f) => (
+        <FixRow fix={f} key={f.fixId} disabled={formDirty} onApply={apply} />
+      ))}
+      {plain.length > 0 && (
+        <ul className="dim" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+          {plain.map(({ m, kind }, i) => (
+            <li key={i} style={kind === 'error' ? { color: 'var(--fail)' } : undefined}>
+              {m}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const DESC_BAND_MIN = 200;
 const DESC_BAND_MAX = 1500;
@@ -98,11 +225,17 @@ function EditorInner() {
   const editName = useSearchParams().get('name');
 
   const [form, setForm] = useState<SkillForm | null>(null);
+  const [loadedSnapshot, setLoadedSnapshot] = useState<string>('');
+  const [health, setHealth] = useState<SkillHealth | null>(null);
+  const [fixes, setFixes] = useState<SkillFix[]>([]);
+  const [contentHash, setContentHash] = useState('');
   const [evalStatus, setEvalStatus] = useState<EvalStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
+
+  const formDirty = form !== null && JSON.stringify(form) !== loadedSnapshot;
 
   function loadEvalStatus(name: string) {
     fetch(`/api/skills/eval?name=${encodeURIComponent(name)}`)
@@ -111,16 +244,40 @@ function EditorInner() {
       .catch(() => {});
   }
 
+  function loadSkill(name: string) {
+    fetch(`/api/skills?name=${encodeURIComponent(name)}`)
+      .then((r) => r.json())
+      .then((b) => {
+        if (b.error) {
+          setError(b.error);
+          return;
+        }
+        setForm(b.skill);
+        setLoadedSnapshot(JSON.stringify(b.skill));
+        setHealth(b.health ?? null);
+      })
+      .catch((e) => setError(String(e)));
+    fetch(`/api/skills/fixes?name=${encodeURIComponent(name)}`)
+      .then((r) => r.json())
+      .then((b) => {
+        if (!b.error) {
+          setFixes(b.fixes ?? []);
+          setContentHash(b.contentHash ?? '');
+        }
+      })
+      .catch(() => {});
+  }
+
   useEffect(() => {
     if (!editName) {
-      setForm({ name: '', description: '', body: '' });
+      const empty = { name: '', description: '', body: '' };
+      setForm(empty);
+      setLoadedSnapshot(JSON.stringify(empty));
       return;
     }
-    fetch(`/api/skills?name=${encodeURIComponent(editName)}`)
-      .then((r) => r.json())
-      .then((b) => (b.error ? setError(b.error) : setForm(b.skill)))
-      .catch((e) => setError(String(e)));
+    loadSkill(editName);
     loadEvalStatus(editName);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editName]);
 
   async function save() {
@@ -139,10 +296,12 @@ function EditorInner() {
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
       setWarnings(body.warnings ?? []);
       setSavedNote(true);
+      setLoadedSnapshot(JSON.stringify(form));
       if (!editName) {
         // Stay reachable for further edits under the now-fixed name.
         router.replace(`/skills/edit?name=${encodeURIComponent(form.name)}`);
       } else {
+        loadSkill(editName); // refresh health/fixes/hash
         loadEvalStatus(editName); // a save may have made the linked eval stale
       }
     } catch (err) {
@@ -169,6 +328,24 @@ function EditorInner() {
           ← All skills
         </Link>
       </div>
+
+      {editName && health && (
+        <HealthPanel
+          name={editName}
+          health={health}
+          fixes={fixes}
+          contentHash={contentHash}
+          formDirty={formDirty}
+          onApplied={() => {
+            setError(null);
+            loadSkill(editName);
+          }}
+          onError={(msg) => {
+            setError(msg);
+            loadSkill(editName); // stale preview — refresh hash and fixes
+          }}
+        />
+      )}
 
       <div className="card">
         <label className="field">
