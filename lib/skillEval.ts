@@ -86,6 +86,29 @@ export interface SkillEvalResult {
   configPath: string;
 }
 
+/**
+ * Mechanical hint extraction for a skill eval's placeholder refinement:
+ * quoted trigger phrases and the "Use when…" clause from the skill's own
+ * description. Text reuse only — no generation. Degrades to [] on any
+ * absence (non-skill config, unconfigured skills dir, missing skill).
+ */
+export function skillHintsForConfig(configRel: string): string[] {
+  const m = path.basename(configRel).match(/^skill-([a-z0-9-]+)\.config\.yaml$/);
+  if (!m) return [];
+  try {
+    const description = readSkill(m[1]).description;
+    const hints: string[] = [];
+    for (const q of description.matchAll(/[""]([^""]{3,60})[""]|"([^"]{3,60})"/g)) {
+      hints.push((q[1] ?? q[2]).trim());
+    }
+    const useWhen = description.match(/Use (?:when|whenever|as)[^.]{0,120}/)?.[0];
+    if (useWhen) hints.push(useWhen.trim());
+    return [...new Set(hints.filter(Boolean))].slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
 const BASELINE_PROMPT = `Answer the following request.
 
 Here's the request:

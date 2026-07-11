@@ -8,6 +8,7 @@ import {
   listRunners,
   type EvalDraft,
 } from '@/lib/evals';
+import { skillHintsForConfig } from '@/lib/skillEval';
 import { REPO_ROOT, resolveRepoPath } from '@/lib/paths';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
       draft: filesToDraft(abs),
       runners: listRunners(),
       apiProviders: listApiProviders(),
+      skillHints: skillHintsForConfig(configRel),
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 });

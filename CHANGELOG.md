@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-11
+
+### Added
+
+- **Coach-guided refinement**: the four content-gap coach findings (too few test cases,
+  no failure-mode check, no deterministic check, seeded placeholder input) now expand
+  inline in the builder's coach panel to targeted forms whose answers become draft
+  structure instantly — new test cases inherit copies of the existing checks, guard and
+  deterministic checks apply across every test case, and the placeholder is replaced in
+  place. Findings clear live as you answer; nothing touches disk until the normal Save.
+  Calibration findings (thresholds, weights, phrasing) stay advisory — the builder's own
+  controls are their fix.
+- **Skill-derived hints**: on skill evals, the placeholder form offers clickable chips
+  extracted mechanically from the skill's own description (quoted trigger phrases and the
+  "Use when…" clause). Text reuse only — the app still makes no direct model calls.
+- The coach card on generated configs' Overview links "Refine in builder →".
+
 ## [0.9.0] - 2026-07-11
 
 ### Added
@@ -156,6 +173,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.10.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.6.0...v0.7.0
