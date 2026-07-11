@@ -127,7 +127,7 @@ function DirCard({
   current,
   onChanged,
 }: {
-  bodyKey: 'skillsDir' | 'workflowsDir';
+  bodyKey: 'skillsDir' | 'workflowsDir' | 'agentsDir';
   title: string;
   hint: React.ReactNode;
   placeholder: string;
@@ -270,6 +270,7 @@ export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderKeyState[] | null>(null);
   const [skillsDir, setSkillsDir] = useState<string | null>(null);
   const [workflowsDir, setWorkflowsDir] = useState<string | null>(null);
+  const [agentsDir, setAgentsDir] = useState<string | null>(null);
   const [guardrails, setGuardrails] = useState<{
     maxConcurrentRuns: number;
     runTimeoutMinutes: number;
@@ -287,6 +288,7 @@ export default function SettingsPage() {
         setProviders(b.providers);
         setSkillsDir(b.skillsDir ?? null);
         setWorkflowsDir(b.workflowsDir ?? null);
+        setAgentsDir(b.agentsDir ?? null);
         setGuardrails(b.runGuardrails ?? null);
       })
       .catch((e) => setError(String(e)));
@@ -340,6 +342,21 @@ export default function SettingsPage() {
           </>
         }
         current={workflowsDir}
+        onChanged={load}
+      />
+
+      <h2>Agents</h2>
+      <DirCard
+        bodyKey="agentsDir"
+        title="Agents directory"
+        placeholder="/Users/cference/Code/claude-toolkit/agents"
+        hint={
+          <>
+            Absolute path to the folder your agent definitions live in — flat{' '}
+            <span className="mono">*.md</span> files with YAML frontmatter. Powers the Agents tool.
+          </>
+        }
+        current={agentsDir}
         onChanged={load}
       />
 

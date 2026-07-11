@@ -37,6 +37,12 @@ const TOOLS: NavEntry[] = [
     isActive: (p) => p.startsWith('/skills'),
   },
   {
+    href: '/agents',
+    label: 'Agents',
+    icon: '⚇',
+    isActive: (p) => p.startsWith('/agents'),
+  },
+  {
     href: '/workflows',
     label: 'Workflows',
     icon: '◈',

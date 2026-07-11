@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-07-11
+
+### Added
+
+- **Agents tool**: the toolkit's third component type gets a surface — list every agent
+  definition in a configurable agents directory with health badges, declared-tool counts,
+  and deploy badges against `~/.claude/agents` that distinguish symlinks (always current)
+  from copies (in sync / differs) and absences. Editor with the same coached description
+  field as skills (descriptions drive delegation routing), tools and model frontmatter,
+  and full-fidelity round-trips: unknown frontmatter keys survive, and a no-op save never
+  rewrites the file (hand-written YAML style — folded scalars, quoting — is preserved
+  until a field actually changes). Validation blocks structural errors; unknown tool
+  names warn without blocking.
+- **Agents directory setting** (fourth configured root).
+- Lands ahead of toolkit versioning so the git-backed machinery covers workflows, skills,
+  and agents uniformly.
+
 ## [0.11.0] - 2026-07-11
 
 ### Added
@@ -195,6 +212,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.12.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.8.0...v0.9.0
