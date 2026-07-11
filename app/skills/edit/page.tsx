@@ -36,14 +36,14 @@ function SkillEvalButton({ name, status, onAction }: { name: string; status: Eva
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function createOrSync(openAfter: boolean) {
+  async function createOrSync(openAfter: boolean, ab = false) {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch('/api/skills/eval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, ab }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -65,9 +65,18 @@ function SkillEvalButton({ name, status, onAction }: { name: string; status: Eva
   return (
     <span className="row">
       {status === 'none' && (
-        <button onClick={() => createOrSync(true)} disabled={busy}>
-          {busy ? 'Creating…' : '⚗ Create EDD eval'}
-        </button>
+        <>
+          <button onClick={() => createOrSync(true)} disabled={busy}>
+            {busy ? 'Creating…' : '⚗ Create EDD eval'}
+          </button>
+          <button
+            onClick={() => createOrSync(true, true)}
+            disabled={busy}
+            title="Blind A/B: with-skill vs a plain baseline — every test runs twice, judge picks the winner"
+          >
+            {busy ? 'Creating…' : '⚖ Create A/B eval'}
+          </button>
+        </>
       )}
       {status === 'stale' && (
         <button onClick={() => createOrSync(false)} disabled={busy} title="The skill changed since the eval's prompt was last generated">

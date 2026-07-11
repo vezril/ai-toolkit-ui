@@ -46,7 +46,13 @@ function CheckEditor({
   return (
     <div className="check-row">
       <div className="row spread">
-        <span className="badge">{check.kind === 'contains' ? 'Text check' : 'AI judge'}</span>
+        <span className="badge">
+          {check.kind === 'contains'
+            ? 'Text check'
+            : check.kind === 'ab-winner'
+              ? 'Blind A/B winner'
+              : 'AI judge'}
+        </span>
         <button className="link-btn" onClick={onRemove} title="Remove this check">
           ✕
         </button>
@@ -70,6 +76,15 @@ function CheckEditor({
             <span>Ignore case</span>
           </label>
         </div>
+      ) : check.kind === 'ab-winner' ? (
+        <label className="field" style={{ marginTop: 6 }}>
+          <span>The judge picks the variant that best satisfies… (needs a comparison prompt)</span>
+          <input
+            value={check.criterion}
+            placeholder="e.g. Which response better follows the skill's guidance?"
+            onChange={(e) => onChange({ ...check, criterion: e.target.value })}
+          />
+        </label>
       ) : (
         <>
           <label className="field" style={{ marginTop: 6 }}>
@@ -123,11 +138,13 @@ function TestEditor({
   index,
   onChange,
   onRemove,
+  hasPromptB,
 }: {
   test: TestDraft;
   index: number;
   onChange: (t: TestDraft) => void;
   onRemove: () => void;
+  hasPromptB: boolean;
 }) {
   function setCheck(i: number, c: CheckDraft) {
     onChange({ ...test, checks: test.checks.map((old, j) => (j === i ? c : old)) });
@@ -192,6 +209,22 @@ function TestEditor({
             }
           >
             + AI judge check
+          </button>
+          <button
+            disabled={!hasPromptB}
+            title={
+              hasPromptB
+                ? 'The judge blindly picks the better prompt variant for this test'
+                : 'Add a comparison prompt (B) first'
+            }
+            onClick={() =>
+              onChange({
+                ...test,
+                checks: [...test.checks, { kind: 'ab-winner', criterion: '' }],
+              })
+            }
+          >
+            + Blind A/B winner
           </button>
         </div>
       </div>
@@ -335,6 +368,46 @@ function BuilderInner() {
           onChange={(e) => setDraft({ ...draft, prompt: e.target.value })}
         />
       </div>
+
+      {draft.promptB === undefined ? (
+        <button
+          onClick={() => setDraft({ ...draft, promptB: '' })}
+          title="Blind A/B: every test runs against both prompts and the judge can pick a winner"
+        >
+          ⚖ Add comparison prompt (blind A/B)
+        </button>
+      ) : (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="row spread" style={{ marginBottom: 6 }}>
+            <span className="dim" style={{ fontSize: 13 }}>
+              <b>Comparison prompt (B)</b> — every test case runs against both prompts, so a run
+              costs ~2× per enabled model.
+            </span>
+            <button
+              className="link-btn"
+              onClick={() => {
+                const hasAb = draft.tests.some((t) => t.checks.some((c) => c.kind === 'ab-winner'));
+                if (hasAb) {
+                  setError('Remove the Blind A/B winner checks before removing the comparison prompt.');
+                  return;
+                }
+                setError(null);
+                setDraft({ ...draft, promptB: undefined, promptBPath: undefined });
+              }}
+            >
+              ✕ Remove
+            </button>
+          </div>
+          <textarea
+            className="editor"
+            style={{ minHeight: 160 }}
+            value={draft.promptB}
+            placeholder={'The baseline or alternative prompt to compare against…\n\n{{request}}'}
+            spellCheck={false}
+            onChange={(e) => setDraft({ ...draft, promptB: e.target.value })}
+          />
+        </div>
+      )}
 
       <h2>3 · Models</h2>
       <p className="dim" style={{ marginTop: -6 }}>
@@ -483,6 +556,14 @@ function BuilderInner() {
             </optgroup>
           </select>
         </label>
+        {draft.tests.some((t) => t.checks.some((c) => c.kind === 'ab-winner')) &&
+          runners.some((r) => r.key === draft.judge) && (
+            <p style={{ color: 'var(--running)', fontSize: 13, marginBottom: 0 }}>
+              ⚠ Blind A/B winner checks parse most reliably with an API-provider judge — CLI
+              wrapper scripts were built for rubric grading and may not return the comparison
+              format promptfoo expects.
+            </p>
+          )}
       </div>
 
       <h2>4 · Test cases</h2>
@@ -491,6 +572,7 @@ function BuilderInner() {
           key={i}
           test={t}
           index={i}
+          hasPromptB={draft.promptB !== undefined}
           onChange={(nt) => setDraft({ ...draft, tests: draft.tests.map((o, j) => (j === i ? nt : o)) })}
           onRemove={() => setDraft({ ...draft, tests: draft.tests.filter((_, j) => j !== i) })}
         />

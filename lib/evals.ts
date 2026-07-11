@@ -89,7 +89,10 @@ const API_PROVIDER_ID = new RegExp(`^(${API_PROVIDERS.map((p) => p.key).join('|'
 
 export type CheckDraft =
   | { kind: 'contains'; text: string; ignoreCase: boolean }
-  | { kind: 'rubric'; criterion: string; metric?: string; threshold: number; weight: number };
+  | { kind: 'rubric'; criterion: string; metric?: string; threshold: number; weight: number }
+  // Blind A/B winner: the judge compares all prompt variants' outputs for the
+  // test (unlabeled) and picks the one best satisfying the criterion.
+  | { kind: 'ab-winner'; criterion: string };
 
 export interface TestDraft {
   description?: string;
@@ -109,6 +112,8 @@ export interface EvalDraft {
   name: string;
   configPath?: string; // set when editing an existing eval
   prompt: string;
+  promptB?: string; // optional comparison prompt — every test runs against both
+  promptBPath?: string; // repo-relative; preserved on round-trip (default <slug>.b.prompt.md)
   models: ModelDraft[];
   judge: string; // CLI runner key or API provider key that grades AI-judge checks
   tests: TestDraft[];
@@ -160,7 +165,13 @@ export function validateDraft(draft: EvalDraft): string[] {
         problems.push(`Test ${i + 1}, check ${j + 1}: describe the criterion for the AI judge.`);
     });
   });
-  const usesRubric = draft.tests?.some((t) => t.checks?.some((c) => c.kind === 'rubric'));
+  const usesAbWinner = draft.tests?.some((t) => t.checks?.some((c) => c.kind === 'ab-winner'));
+  if (usesAbWinner && !draft.promptB?.trim()) {
+    problems.push('Blind A/B winner checks need a comparison prompt (B) to compare against.');
+  }
+  const usesRubric = draft.tests?.some((t) =>
+    t.checks?.some((c) => c.kind === 'rubric' || c.kind === 'ab-winner'),
+  );
   if (usesRubric && !draft.judge) problems.push('Pick a judge model for the AI-judge checks.');
   if (usesRubric && draft.judge && apiProviderByKey(draft.judge) && !hasApiKey(draft.judge)) {
     const label = apiProviderByKey(draft.judge)!.label;
@@ -172,6 +183,9 @@ export function validateDraft(draft: EvalDraft): string[] {
 function checkToAssert(check: CheckDraft): Record<string, unknown> {
   if (check.kind === 'contains') {
     return { type: check.ignoreCase ? 'icontains' : 'contains', value: check.text };
+  }
+  if (check.kind === 'ab-winner') {
+    return { type: 'select-best', value: check.criterion };
   }
   const assert: Record<string, unknown> = {
     type: 'llm-rubric',
@@ -196,6 +210,9 @@ function assertToCheck(a: any): CheckDraft | null {
       weight: typeof a.weight === 'number' ? a.weight : 1,
     };
   }
+  if (a?.type === 'select-best') {
+    return { kind: 'ab-winner', criterion: String(a.value ?? '') };
+  }
   return null;
 }
 
@@ -210,6 +227,8 @@ export interface EvalFiles {
   promptPath: string; // repo-relative
   configYaml: string;
   promptText: string;
+  promptBPath?: string; // repo-relative, present when the draft has a comparison prompt
+  promptBText?: string;
 }
 
 export function draftToFiles(draft: EvalDraft): EvalFiles {
@@ -221,6 +240,10 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
     : slugify(draft.name);
   const configPath = draft.configPath ?? `${EVALS_DIR}/${slug}.config.yaml`;
   const promptPath = `${EVALS_DIR}/${slug}.prompt.md`;
+  const hasPromptB = Boolean(draft.promptB?.trim());
+  const promptBPath = hasPromptB
+    ? (draft.promptBPath ?? `${EVALS_DIR}/${slug}.b.prompt.md`)
+    : undefined;
 
   const providers = draft.models
     .filter((m) => m.enabled)
@@ -241,7 +264,10 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
       const config: Record<string, unknown> = { model: m.model || runner.defaultModel };
       if (m.maxTokens) config.maxTokens = m.maxTokens;
       return {
-        id: `exec: node ./${runner.script}`,
+        // promptfoo resolves exec paths relative to the CONFIG's directory
+        // (basePath), not the project root — generated configs live in
+        // evals/, so runner scripts at the root need the ../ prefix.
+        id: `exec: node ../${runner.script}`,
         label: `${runner.name} (${config.model})`,
         config,
       };
@@ -256,11 +282,14 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
         draft.models.find((m) => modelKind(m) === 'api' && m.runner === apiJudge.key && m.enabled)
           ?.model || apiJudge.models[0]
       }`
-    : `exec: node ./${runnerByKey(draft.judge).script}`;
+    : `exec: node ../${runnerByKey(draft.judge).script}`;
 
   const config = {
     description: draft.name,
-    prompts: [`file://${slug}.prompt.md`],
+    prompts: [
+      `file://${slug}.prompt.md`,
+      ...(promptBPath ? [`file://${path.basename(promptBPath)}`] : []),
+    ],
     defaultTest: {
       options: { provider: judgeProvider },
     },
@@ -279,6 +308,9 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
     promptPath,
     configYaml: header + YAML.stringify(config),
     promptText: ensureRequestPlaceholder(draft.prompt),
+    ...(hasPromptB && promptBPath
+      ? { promptBPath, promptBText: ensureRequestPlaceholder(draft.promptB!) }
+      : {}),
   };
 }
 
@@ -297,9 +329,23 @@ export function filesToDraft(configAbsPath: string): EvalDraft {
   const parsed = YAML.parse(fs.readFileSync(configAbsPath, 'utf8'));
   const configDir = path.dirname(configAbsPath);
 
-  const promptEntry: string = Array.isArray(parsed.prompts) ? parsed.prompts[0] : parsed.prompts;
-  const promptAbs = path.resolve(configDir, String(promptEntry).replace(/^file:\/\//, ''));
-  const prompt = fs.existsSync(promptAbs) ? fs.readFileSync(promptAbs, 'utf8') : '';
+  const promptEntries: string[] = Array.isArray(parsed.prompts)
+    ? parsed.prompts
+    : [parsed.prompts];
+  if (promptEntries.length > 2) {
+    throw new Error(
+      'This config has more than two prompts — the builder edits at most an A/B pair; use the raw YAML editor instead.',
+    );
+  }
+  const readPromptEntry = (entry: unknown) => {
+    const abs = path.resolve(configDir, String(entry).replace(/^file:\/\//, ''));
+    return {
+      text: fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '',
+      rel: path.relative(REPO_ROOT, abs),
+    };
+  };
+  const prompt = readPromptEntry(promptEntries[0]).text;
+  const promptBEntry = promptEntries[1] ? readPromptEntry(promptEntries[1]) : undefined;
 
   const enabledModels: ModelDraft[] = (parsed.providers ?? [])
     .map((p: any): ModelDraft | null => {
@@ -359,6 +405,7 @@ export function filesToDraft(configAbsPath: string): EvalDraft {
     name: String(parsed.description ?? path.basename(configAbsPath)),
     configPath: path.relative(REPO_ROOT, configAbsPath),
     prompt,
+    ...(promptBEntry ? { promptB: promptBEntry.text, promptBPath: promptBEntry.rel } : {}),
     models,
     judge,
     tests,
