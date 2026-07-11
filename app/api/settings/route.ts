@@ -4,10 +4,12 @@ import {
   deleteApiKey,
   getRunGuardrails,
   getSkillsDir,
+  getWorkflowsDir,
   maskedKeys,
   setApiKey,
   setRunGuardrails,
   setSkillsDir,
+  setWorkflowsDir,
   type RunGuardrails,
 } from '@/lib/settings';
 
@@ -30,6 +32,7 @@ export async function GET() {
   return NextResponse.json({
     providers,
     skillsDir: getSkillsDir(),
+    workflowsDir: getWorkflowsDir(),
     runGuardrails: getRunGuardrails(),
   });
 }
@@ -40,6 +43,7 @@ export async function PUT(req: NextRequest) {
     provider?: string;
     key?: string;
     skillsDir?: string;
+    workflowsDir?: string;
     runGuardrails?: Partial<RunGuardrails>;
   };
   try {
@@ -55,6 +59,10 @@ export async function PUT(req: NextRequest) {
     if (typeof body.skillsDir === 'string') {
       setSkillsDir(body.skillsDir);
       return NextResponse.json({ ok: true, skillsDir: getSkillsDir() });
+    }
+    if (typeof body.workflowsDir === 'string') {
+      setWorkflowsDir(body.workflowsDir);
+      return NextResponse.json({ ok: true, workflowsDir: getWorkflowsDir() });
     }
     if (!body.provider || typeof body.key !== 'string') {
       return NextResponse.json({ error: 'provider and key (or skillsDir) required' }, { status: 400 });

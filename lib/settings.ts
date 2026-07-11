@@ -61,6 +61,7 @@ export const DEFAULT_RUN_GUARDRAILS: RunGuardrails = {
 interface Settings {
   apiKeys: Record<string, StoredKey>;
   skillsDir?: string;
+  workflowsDir?: string;
   runGuardrails?: Partial<RunGuardrails>;
 }
 
@@ -70,6 +71,7 @@ function readSettings(): Settings {
     return {
       apiKeys: parsed?.apiKeys ?? {},
       skillsDir: typeof parsed?.skillsDir === 'string' ? parsed.skillsDir : undefined,
+      workflowsDir: typeof parsed?.workflowsDir === 'string' ? parsed.workflowsDir : undefined,
       runGuardrails:
         parsed?.runGuardrails && typeof parsed.runGuardrails === 'object'
           ? parsed.runGuardrails
@@ -145,6 +147,32 @@ export function setSkillsDir(dir: string): void {
   }
   if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
   settings.skillsDir = trimmed;
+  writeSettings(settings);
+}
+
+/** Absolute path of the configured workflows directory, or null when unset. */
+export function getWorkflowsDir(): string | null {
+  return readSettings().workflowsDir ?? null;
+}
+
+/** Set (or clear, with '') the workflows directory. Must be an absolute path to an existing directory. */
+export function setWorkflowsDir(dir: string): void {
+  const settings = readSettings();
+  const trimmed = dir.trim();
+  if (!trimmed) {
+    delete settings.workflowsDir;
+    writeSettings(settings);
+    return;
+  }
+  if (!path.isAbsolute(trimmed)) throw new Error('Workflows directory must be an absolute path');
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(trimmed);
+  } catch {
+    throw new Error(`Directory does not exist: ${trimmed}`);
+  }
+  if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
+  settings.workflowsDir = trimmed;
   writeSettings(settings);
 }
 

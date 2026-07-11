@@ -23,6 +23,10 @@ iterate.
   wrapper scripts (Devin, Claude Code, GitHub Copilot, Google Antigravity, Kiro) and/or
   directly via provider APIs (Anthropic, OpenAI, Google). API entries unlock when you add
   a key in Settings and are injected into runs as environment variables only.
+- **Workflow builder** — visualize Claude Code workflow scripts (declared phases +
+  composition edges on an SVG canvas, sync status against `~/.claude/workflows`) and build
+  new sequential ones visually: wire steps to your skills and save a runnable, round-trippable
+  Workflow-tool script to both managed locations. Execution stays in Claude Code.
 - **Settings** — sidebar-pinned system configuration: provider API keys stored in
   `~/.ai-toolkit-ui/settings.json` (owner-only permissions, outside any git repo), masked
   after save; plus the skills-directory path for the Skill Builder.
