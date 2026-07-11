@@ -4,9 +4,21 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import type { WorkflowSummary } from '@/lib/workflows';
 
-function SyncBadge({ sync }: { sync: WorkflowSummary['sync'] }) {
-  if (sync === 'in-sync') return <span className="badge pass" title="Identical in ~/.claude/workflows">✓ synced</span>;
-  if (sync === 'differs') return <span className="badge running" title="Differs from ~/.claude/workflows">differs</span>;
+function SyncBadge({ w }: { w: WorkflowSummary }) {
+  if (w.sync === 'in-sync') {
+    return (
+      <span className="badge pass" title="Identical in ~/.claude/workflows">
+        ✓ synced{w.version ? ` v${w.version}` : ''}
+      </span>
+    );
+  }
+  if (w.sync === 'differs') {
+    const detail =
+      w.version && w.deployedVersion
+        ? `v${w.version} local · v${w.deployedVersion} deployed`
+        : 'differs';
+    return <span className="badge running" title="Differs from ~/.claude/workflows">{detail}</span>;
+  }
   return <span className="badge fail" title="Not present in ~/.claude/workflows">not in ~/.claude</span>;
 }
 
@@ -90,7 +102,7 @@ export default function WorkflowsPage() {
                   ⛓ {w.compositions.length}
                 </span>
               )}
-              <SyncBadge sync={w.sync} />
+              <SyncBadge w={w} />
               {w.sync !== 'in-sync' && (
                 <button className="link-btn" onClick={() => sync(w.name)} title="Copy this version to ~/.claude/workflows">
                   sync →

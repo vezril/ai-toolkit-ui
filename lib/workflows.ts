@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { getWorkflowsDir } from './settings';
 import { readSkill } from './skills';
+import { currentVersion, readRegistry, recordDeployed, versionedSave } from './versions';
 
 /**
  * Workflows library: list, visualize, and (for builder-generated files)
@@ -56,6 +57,8 @@ export interface WorkflowSummary {
   metaError?: string;
   compositions: string[]; // workflow names this one calls
   sync: SyncStatus;
+  version?: string; // from versions.json when the root is git-tracked
+  deployedVersion?: string;
 }
 
 export interface WorkflowDetail extends WorkflowSummary {
@@ -76,8 +79,14 @@ function resolveWorkflowFile(name: string): string {
   return abs;
 }
 
-/** Slice a balanced {...} literal starting at the first { after `marker`. */
-function sliceObjectLiteral(source: string, marker: string): string | null {
+interface LiteralRegion {
+  literal: string;
+  start: number; // index of the opening {
+  end: number; // index just past the closing }
+}
+
+/** Slice a balanced {...} literal starting at the first { after `marker`, with offsets. */
+function sliceRegion(source: string, marker: string): LiteralRegion | null {
   const at = source.indexOf(marker);
   if (at < 0) return null;
   const start = source.indexOf('{', at);
@@ -95,10 +104,14 @@ function sliceObjectLiteral(source: string, marker: string): string | null {
     else if (ch === '{') depth++;
     else if (ch === '}') {
       depth--;
-      if (depth === 0) return source.slice(start, i + 1);
+      if (depth === 0) return { literal: source.slice(start, i + 1), start, end: i + 1 };
     }
   }
   return null;
+}
+
+function sliceObjectLiteral(source: string, marker: string): string | null {
+  return sliceRegion(source, marker)?.literal ?? null;
 }
 
 function evalLiteral<T>(literal: string): T {
@@ -141,7 +154,10 @@ function syncStatus(name: string, source: string): SyncStatus {
 
 function summarize(name: string, source: string): WorkflowSummary {
   const { meta, error } = extractMeta(source);
+  const entry = readRegistry(workflowsRoot())[name];
   return {
+    version: entry?.version,
+    deployedVersion: entry?.deployedVersion,
     name,
     description: meta?.description,
     whenToUse: meta?.whenToUse,
@@ -267,6 +283,15 @@ export function writeWorkflow(model: WorkflowModel, opts: { mustExist: boolean }
   // Managed second location: immediately invokable by Claude Code sessions.
   fs.mkdirSync(CLAUDE_WORKFLOWS_DIR, { recursive: true });
   fs.writeFileSync(path.join(CLAUDE_WORKFLOWS_DIR, `${model.name}.js`), source, 'utf8');
+
+  versionedSave(
+    workflowsRoot(),
+    'workflow',
+    model.name,
+    [`${model.name}.js`],
+    opts.mustExist ? 'updated via builder' : 'created via builder',
+    { alsoDeployed: true }, // saving dual-writes ~/.claude, so this save IS a deploy
+  );
 }
 
 /** Copy the workflows-directory version over the ~/.claude/workflows twin. */
@@ -275,4 +300,91 @@ export function syncWorkflow(name: string): void {
   if (!fs.existsSync(file)) throw new Error(`Workflow not found: ${name}`);
   fs.mkdirSync(CLAUDE_WORKFLOWS_DIR, { recursive: true });
   fs.copyFileSync(file, path.join(CLAUDE_WORKFLOWS_DIR, `${name}.js`));
+  recordDeployed(workflowsRoot(), name);
 }
+
+function writeBothLocations(name: string, source: string): void {
+  fs.writeFileSync(resolveWorkflowFile(name), source, 'utf8');
+  fs.mkdirSync(CLAUDE_WORKFLOWS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(CLAUDE_WORKFLOWS_DIR, `${name}.js`), source, 'utf8');
+}
+
+/** Raw-source save for hand-written workflows (generated ones are canvas territory). */
+export function writeWorkflowRaw(name: string, source: string): void {
+  const file = resolveWorkflowFile(name);
+  if (!fs.existsSync(file)) throw new Error(`Workflow not found: ${name}`);
+  if (fs.readFileSync(file, 'utf8').startsWith(WORKFLOW_MARKER)) {
+    throw new Error(`${name} is builder-generated — edit it on the canvas instead.`);
+  }
+  if (source.startsWith(WORKFLOW_MARKER)) {
+    throw new Error('The generated-workflow marker is reserved for canvas saves.');
+  }
+  assertParses(source);
+  writeBothLocations(name, source);
+  versionedSave(workflowsRoot(), 'workflow', name, [`${name}.js`], 'raw source edit', {
+    alsoDeployed: true,
+  });
+}
+
+export interface MetaPatch {
+  description?: string;
+  whenToUse?: string;
+  phases?: WorkflowPhase[];
+}
+
+/**
+ * Meta surgery for hand-written workflows: replace exactly the meta literal
+ * region; every byte outside it is untouched by construction.
+ */
+export function writeWorkflowMeta(name: string, patch: MetaPatch): void {
+  const file = resolveWorkflowFile(name);
+  if (!fs.existsSync(file)) throw new Error(`Workflow not found: ${name}`);
+  const source = fs.readFileSync(file, 'utf8');
+  if (source.startsWith(WORKFLOW_MARKER)) {
+    throw new Error(`${name} is builder-generated — edit it on the canvas instead.`);
+  }
+  const region = sliceRegion(source, 'export const meta');
+  if (!region) throw new Error('No export const meta block found to edit.');
+  const existing = evalLiteral<Record<string, unknown>>(region.literal);
+
+  const merged: Record<string, unknown> = { ...existing };
+  if (patch.description !== undefined) merged.description = patch.description.trim();
+  if (patch.whenToUse !== undefined) {
+    if (patch.whenToUse.trim()) merged.whenToUse = patch.whenToUse.trim();
+    else delete merged.whenToUse;
+  }
+  if (patch.phases !== undefined) {
+    merged.phases = patch.phases.map((p) => ({
+      title: p.title,
+      ...(p.detail?.trim() ? { detail: p.detail.trim() } : {}),
+    }));
+  }
+
+  const newSource =
+    source.slice(0, region.start) + JSON.stringify(merged, null, 2) + source.slice(region.end);
+  assertParses(newSource);
+  writeBothLocations(name, newSource);
+  versionedSave(workflowsRoot(), 'workflow', name, [`${name}.js`], 'meta edit', {
+    alsoDeployed: true,
+  });
+}
+
+/** Full source for the raw editor. */
+export function readWorkflowSource(name: string): string {
+  const file = resolveWorkflowFile(name);
+  if (!fs.existsSync(file)) throw new Error(`Workflow not found: ${name}`);
+  return fs.readFileSync(file, 'utf8');
+}
+
+/** Sandboxed file path + current version, for the versioning/restore layer. */
+export function workflowFileInfo(name: string): { root: string; file: string; deployTwin: string } {
+  resolveWorkflowFile(name); // name gate
+  return {
+    root: workflowsRoot(),
+    file: `${name}.js`,
+    deployTwin: path.join(CLAUDE_WORKFLOWS_DIR, `${name}.js`),
+  };
+}
+
+// Re-exported for list badges elsewhere.
+export { currentVersion as workflowVersion };

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import HistoryPanel from '../../components/HistoryPanel';
 import type { AgentForm } from '@/lib/agents';
 
 const DESC_BAND_MIN = 200;
@@ -168,6 +169,18 @@ function EditorInner() {
             ))}
           </ul>
         </div>
+      )}
+      {editName && (
+        <HistoryPanel
+          type="agent"
+          name={editName}
+          onRestored={() => {
+            fetch(`/api/agents?name=${encodeURIComponent(editName)}`)
+              .then((r) => r.json())
+              .then((b) => !b.error && setForm(b.agent))
+              .catch(() => {});
+          }}
+        />
       )}
     </>
   );

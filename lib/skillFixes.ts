@@ -1,7 +1,9 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import YAML from 'yaml';
+import { getSkillsDir } from './settings';
 import { listSkillDirNames, skillFile } from './skills';
+import { versionedSave } from './versions';
 
 /**
  * Quick-fixes for the MECHANICAL class of skill health findings. Every fix is
@@ -220,4 +222,7 @@ export function applyFix(name: string, fixId: string, contentHash: string): void
     fs.writeFileSync(file, content, 'utf8'); // revert
     throw new Error(`Fix ${fixId} did not verify after applying — reverted.`);
   }
+
+  const root = getSkillsDir();
+  if (root) versionedSave(root, 'skill', name, [`${name}/SKILL.md`], `quick-fix: ${fixId}`);
 }

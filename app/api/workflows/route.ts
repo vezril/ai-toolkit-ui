@@ -3,8 +3,12 @@ import {
   isConfigured,
   listWorkflows,
   readWorkflow,
+  readWorkflowSource,
   syncWorkflow,
   writeWorkflow,
+  writeWorkflowMeta,
+  writeWorkflowRaw,
+  type MetaPatch,
   type WorkflowModel,
 } from '@/lib/workflows';
 
@@ -15,7 +19,13 @@ export async function GET(req: NextRequest) {
   try {
     if (!isConfigured()) return NextResponse.json({ configured: false, workflows: [] });
     const name = req.nextUrl.searchParams.get('name');
-    if (name) return NextResponse.json({ configured: true, workflow: readWorkflow(name) });
+    if (name) {
+      return NextResponse.json({
+        configured: true,
+        workflow: readWorkflow(name),
+        source: readWorkflowSource(name),
+      });
+    }
     return NextResponse.json({ configured: true, workflows: listWorkflows() });
   } catch (err) {
     return NextResponse.json(
@@ -27,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/workflows — create ({model}) or sync (?action=sync, {name}); PUT — update ({model}) */
 async function upsert(req: NextRequest, mustExist: boolean) {
-  let body: { model?: WorkflowModel; name?: string };
+  let body: { model?: WorkflowModel; name?: string; rawSource?: string; metaPatch?: MetaPatch };
   try {
     body = await req.json();
   } catch {
@@ -37,6 +47,14 @@ async function upsert(req: NextRequest, mustExist: boolean) {
     if (req.nextUrl.searchParams.get('action') === 'sync') {
       if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 });
       syncWorkflow(body.name);
+      return NextResponse.json({ ok: true });
+    }
+    if (body.name && typeof body.rawSource === 'string') {
+      writeWorkflowRaw(body.name, body.rawSource);
+      return NextResponse.json({ ok: true });
+    }
+    if (body.name && body.metaPatch) {
+      writeWorkflowMeta(body.name, body.metaPatch);
       return NextResponse.json({ ok: true });
     }
     if (!body.model) return NextResponse.json({ error: 'model required' }, { status: 400 });

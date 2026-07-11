@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import YAML from 'yaml';
 import { getSkillsDir } from './settings';
+import { versionedSave } from './versions';
 
 /**
  * Agent Skills library: list, read, and write SKILL.md files in the
@@ -269,5 +270,13 @@ export function writeSkill(form: SkillForm, opts: { mustExist: boolean }): Skill
   const frontYaml = YAML.stringify(front, { lineWidth: 0 });
   fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(file, `---\n${frontYaml}---\n\n${body}`, 'utf8');
+
+  versionedSave(
+    skillsRoot(),
+    'skill',
+    form.name,
+    [`${form.name}/SKILL.md`],
+    opts.mustExist ? 'edited' : 'created',
+  );
   return health; // errors empty; warnings inform the UI
 }

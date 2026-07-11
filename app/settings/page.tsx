@@ -266,6 +266,85 @@ function RunGuardrailsCard({
   );
 }
 
+function ShipCard() {
+  const [status, setStatus] = useState<{ type: string; root: string; repo: string | null; pending: number }[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    fetch('/api/ship')
+      .then((r) => r.json())
+      .then((b) => setStatus(b.status ?? []))
+      .catch(() => {});
+  }, []);
+  useEffect(load, [load]);
+
+  // Roots sharing one repo dedupe to a single row.
+  const repos = new Map<string, { types: string[]; pending: number }>();
+  for (const s of status) {
+    if (!s.repo) continue;
+    const entry = repos.get(s.repo) ?? { types: [], pending: s.pending };
+    entry.types.push(s.type);
+    repos.set(s.repo, entry);
+  }
+  if (repos.size === 0) return null;
+
+  async function ship(type: string) {
+    setBusy(type);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch('/api/ship', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setResult(
+        body.prUrl
+          ? `Pushed ${body.branch} — PR: ${body.prUrl}`
+          : `Pushed ${body.branch}${body.prError ? ` (PR not created: ${body.prError})` : ''}`,
+      );
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Toolkit repo — ship UI edits</h3>
+      <p className="dim" style={{ margin: '4px 0 10px', fontSize: 13 }}>
+        Every UI save commits locally. Ship pushes your branch to{' '}
+        <span className="mono">toolkit-ui-ship</span> and opens a gated PR — no local branch is
+        switched, and merging stays yours (merge-commit recommended over squash).
+      </p>
+      {[...repos.entries()].map(([repo, info]) => {
+        const type = status.find((s) => s.repo === repo)!.type;
+        return (
+          <div className="row spread" key={repo} style={{ marginTop: 6 }}>
+            <span className="mono" style={{ fontSize: 13 }}>
+              {repo} <span className="dim">({info.types.join(', ')})</span>
+            </span>
+            <span className="row">
+              <span className="badge">{info.pending} pending commit{info.pending === 1 ? '' : 's'}</span>
+              <button className="primary" onClick={() => ship(type)} disabled={busy !== null || info.pending === 0}>
+                {busy === type ? 'Shipping…' : '⛵ Ship'}
+              </button>
+            </span>
+          </div>
+        );
+      })}
+      {result && <p className="save-note">{result}</p>}
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderKeyState[] | null>(null);
   const [skillsDir, setSkillsDir] = useState<string | null>(null);
@@ -362,6 +441,9 @@ export default function SettingsPage() {
 
       <h2>Runs</h2>
       {guardrails && <RunGuardrailsCard current={guardrails} onChanged={load} />}
+
+      <h2>Versioning</h2>
+      <ShipCard />
     </>
   );
 }

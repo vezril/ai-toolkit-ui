@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import HistoryPanel from '../../components/HistoryPanel';
 import type { SkillHealth, SkillForm } from '@/lib/skills';
 import type { SkillFix } from '@/lib/skillFixes';
 
@@ -463,6 +464,7 @@ function EditorInner() {
           </ul>
         </div>
       )}
+      {editName && <HistoryPanel type="skill" name={editName} onRestored={() => loadSkill(editName)} />}
     </>
   );
 }
