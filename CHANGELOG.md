@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-11
+
+### Added
+
+- **Guided setup** (`/guide`): five terse, skippable stages — Purpose, Success, Failure,
+  Evidence, Calibrate — whose answers mechanically become a pre-populated eval draft
+  (success lines → rubric checks with auto-slugged metrics; never-appear lines →
+  must-NOT-contain checks; failure modes → "avoids…" judge checks; easy/hard/ambiguous
+  inputs → test cases; tapped load-bearing criteria → weight ×2 / threshold 0.7). The
+  wizard owns no persistence — it hands the draft to the eval builder.
+- **Eval coach**: seven static, advisory-only structural heuristics (single test case,
+  no failure-mode check, no deterministic check, uncalibrated thresholds, undifferentiated
+  weights, non-observable rubric phrasing, leftover placeholder input) surfaced as a live
+  panel in the builder and structure badges on every dashboard config card — hand-written
+  configs included.
+- **"Must NOT contain" check kind** (promptfoo `not-contains`/`not-icontains`) in the
+  eval builder, with full round-trip support.
+
 ## [0.6.0] - 2026-07-11
 
 ### Added
@@ -113,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.7.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.3.0...v0.4.0

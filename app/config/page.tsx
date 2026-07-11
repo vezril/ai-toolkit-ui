@@ -29,6 +29,19 @@ function Overview({ config }: { config: ConfigSummary }) {
         )}
       </div>
 
+      {config.coach.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--running)' }}>
+          <h3 style={{ color: 'var(--running)' }}>Coach — {config.coach.length} structural tip{config.coach.length > 1 ? 's' : ''}</h3>
+          <ul className="dim" style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+            {config.coach.map((f, i) => (
+              <li key={i}>
+                {f.message} <span style={{ opacity: 0.7 }}>({f.principle})</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <h2>Tests ({config.tests.length})</h2>
       {config.tests.map((t, i) => (
         <div className="card" key={i}>

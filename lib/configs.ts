@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import YAML from 'yaml';
+import { coachFindings, type CoachCheckKind, type Finding } from './coach';
 import { GENERATED_MARKER } from './evals';
 import { REPO_ROOT } from './paths';
 
@@ -35,7 +36,29 @@ export interface ConfigSummary {
   suiteFiles: string[];
   outputPath?: string;
   generated: boolean; // created by the eval builder → editable as a form
+  coach: Finding[]; // advisory structure findings (never blocking)
   error?: string;
+}
+
+const ASSERT_KIND: Record<string, CoachCheckKind> = {
+  contains: 'contains',
+  icontains: 'contains',
+  'not-contains': 'not-contains',
+  'not-icontains': 'not-contains',
+  'llm-rubric': 'rubric',
+  'select-best': 'ab-winner',
+};
+
+function coachInput(tests: TestSummary[]) {
+  return tests.map((t) => ({
+    request: String(t.vars?.request ?? ''),
+    checks: t.asserts.map((a) => ({
+      kind: ASSERT_KIND[a.type] ?? ('other' as const),
+      criterion: a.value,
+      threshold: a.threshold,
+      weight: a.weight,
+    })),
+  }));
 }
 
 const SCAN_SKIP = new Set(['node_modules', '.git', 'webui', 'eval-runs', 'docs']);
@@ -152,6 +175,7 @@ function summarizeConfig(absPath: string): ConfigSummary | null {
     suiteFiles,
     outputPath: parsed.outputPath,
     generated: raw.startsWith(GENERATED_MARKER),
+    coach: coachFindings(coachInput(tests)),
   };
 }
 
