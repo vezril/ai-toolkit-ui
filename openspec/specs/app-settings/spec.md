@@ -62,3 +62,10 @@ The Settings page SHALL provide a "Workflows directory" field accepting an absol
 #### Scenario: Setting the workflows directory
 - **WHEN** the user saves a valid workflows directory path
 - **THEN** `/workflows` lists that directory's workflow scripts without a restart
+
+### Requirement: Configurable agents directory
+The Settings page SHALL provide an "Agents directory" field (absolute path to an existing directory, e.g. `/Users/cference/Code/claude-toolkit/agents`), validated and persisted like the skills and workflows directories; clearing it disables the Agents tool.
+
+#### Scenario: Setting the agents directory
+- **WHEN** the user saves a valid agents directory path
+- **THEN** `/agents` lists that directory's agents without a restart
