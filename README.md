@@ -78,6 +78,48 @@ directory.
 The target project needs `promptfoo` runnable via `npx` (a local dependency or global install),
 plus whatever provider CLIs its configs reference (Claude Code, Devin, Copilot, …).
 
+## Run in Docker
+
+A published image runs the app as a **self-contained service**: it clones `vezril/claude-toolkit`
+into a data volume on first boot, keeps an empty promptfoo project for your evals, and persists
+everything (settings, API keys, version history) in that volume.
+
+> ⚠️ **No authentication.** This image is meant for a trusted network. Anyone who can reach the
+> port has full control — including your stored API keys and, if you provide one, the git-push
+> token. Do **not** expose it to the public internet; keep it on a LAN/VPN you trust, or front it
+> with your own authenticating reverse proxy.
+
+```bash
+# quickest: compose (edit env as needed)
+docker compose up -d          # → http://<host>:3210
+
+# or plain docker
+docker run -d -p 3210:3210 -v aitk-data:/data vezril/ai-toolkit-ui:latest
+```
+
+Configuration is env-driven (the image ships self-configuring defaults; override any):
+
+| Env | Default | Purpose |
+|---|---|---|
+| `TOOLKIT_REPO` | `…/vezril/claude-toolkit.git` | repo cloned in for skills/agents/workflows |
+| `SKILLS_DIR` / `AGENTS_DIR` / `WORKFLOWS_DIR` | `/data/claude-toolkit/*` | component roots |
+| `PROJECT_ROOT` | `/data/evals` | where builder evals + run history live |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | local/sidecar Ollama for free evals |
+| `GITHUB_TOKEN` | — | repo-scoped token; enables **Ship** (push + PR). Omit for read-only toolkit |
+| `GIT_AUTHOR_NAME` / `_EMAIL` | AI Toolkit UI | identity for versioned commits |
+
+**What works in the container vs. what needs the host:**
+
+| Capability | In container |
+|---|---|
+| API providers (Anthropic/OpenAI/Google, with keys) | ✅ |
+| Ollama local models (via `OLLAMA_BASE_URL`) | ✅ |
+| Skills / agents / workflows authoring + git versioning + Ship | ✅ (clone + `GITHUB_TOKEN`) |
+| CLI runner scripts (devin / claude / copilot / …) | ⚠️ host-installed & authed — not in the image |
+
+Publishing the image needs a one-time `dockerhub-setup` (Docker Hub repo + `DOCKERHUB_USERNAME`/
+`DOCKERHUB_TOKEN` GitHub secrets); until then CI builds and skips the push.
+
 ## Versioning
 
 This project follows [Semantic Versioning](https://semver.org): breaking changes bump the major

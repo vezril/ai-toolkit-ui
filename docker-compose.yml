@@ -1,0 +1,28 @@
+# Self-contained deployment. One volume holds everything mutable; the toolkit
+# is cloned on first boot. See the README's "Run in Docker" section — note the
+# no-auth / trusted-network warning before exposing this port.
+services:
+  ai-toolkit-ui:
+    image: vezril/ai-toolkit-ui:latest
+    # build: .   # uncomment to build locally instead of pulling
+    ports:
+      - "3210:3210" # LAN-exposed, no auth — trusted networks only
+    environment:
+      PROJECT_ROOT: /data/evals
+      SKILLS_DIR: /data/claude-toolkit/skills
+      AGENTS_DIR: /data/claude-toolkit/agents
+      WORKFLOWS_DIR: /data/claude-toolkit/workflows
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      TOOLKIT_REPO: ${TOOLKIT_REPO:-https://github.com/vezril/claude-toolkit.git}
+      # Ship (git push + PR) needs a repo-scoped token; omit for a read-only toolkit.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-AI Toolkit UI}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-ai-toolkit-ui@localhost}
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # reach a host/sidecar Ollama (Linux); no-op on Desktop
+    volumes:
+      - aitk-data:/data
+    restart: unless-stopped
+
+volumes:
+  aitk-data:
