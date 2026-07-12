@@ -44,5 +44,5 @@ jobs:
           context: .
           push: ${{ steps.cfg.outputs.push == 'true' }}
           tags: |
-            vezril/ai-toolkit-ui:${{ steps.cfg.outputs.version }}
-            vezril/ai-toolkit-ui:latest
+            calvinference/ai-toolkit-ui:${{ steps.cfg.outputs.version }}
+            calvinference/ai-toolkit-ui:latest
