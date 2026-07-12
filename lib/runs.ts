@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { REPO_ROOT, RUNS_DIR, resolveRepoPath } from './paths';
-import { getRunGuardrails, settingsEnv } from './settings';
+import { getOllamaBaseUrl, getRunGuardrails, ollamaBaseUrlIsCustom, settingsEnv } from './settings';
 
 export type RunStatus = 'running' | 'completed' | 'failed';
 
@@ -88,7 +88,12 @@ export function startRun(configRelPath: string): RunMeta {
   // wrapper verifiably leaks the hung provider grandchild.
   const child = spawn('npx', args, {
     cwd: REPO_ROOT,
-    env: { ...process.env, ...settingsEnv(), FORCE_COLOR: '0' },
+    env: {
+      ...process.env,
+      ...settingsEnv(),
+      ...(ollamaBaseUrlIsCustom() ? { OLLAMA_BASE_URL: getOllamaBaseUrl() } : {}),
+      FORCE_COLOR: '0',
+    },
     detached: process.platform !== 'win32',
   });
 

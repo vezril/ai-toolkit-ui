@@ -63,6 +63,7 @@ interface Settings {
   skillsDir?: string;
   workflowsDir?: string;
   agentsDir?: string;
+  ollamaBaseUrl?: string;
   runGuardrails?: Partial<RunGuardrails>;
 }
 
@@ -74,6 +75,7 @@ function readSettings(): Settings {
       skillsDir: typeof parsed?.skillsDir === 'string' ? parsed.skillsDir : undefined,
       workflowsDir: typeof parsed?.workflowsDir === 'string' ? parsed.workflowsDir : undefined,
       agentsDir: typeof parsed?.agentsDir === 'string' ? parsed.agentsDir : undefined,
+      ollamaBaseUrl: typeof parsed?.ollamaBaseUrl === 'string' ? parsed.ollamaBaseUrl : undefined,
       runGuardrails:
         parsed?.runGuardrails && typeof parsed.runGuardrails === 'object'
           ? parsed.runGuardrails
@@ -201,6 +203,33 @@ export function setAgentsDir(dir: string): void {
   }
   if (!stat.isDirectory()) throw new Error(`Not a directory: ${trimmed}`);
   settings.agentsDir = trimmed;
+  writeSettings(settings);
+}
+
+export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
+
+/** Configured Ollama base URL (defaults to localhost:11434). */
+export function getOllamaBaseUrl(): string {
+  return readSettings().ollamaBaseUrl ?? DEFAULT_OLLAMA_BASE_URL;
+}
+
+/** Is a non-default base URL configured (i.e. needs OLLAMA_BASE_URL injection)? */
+export function ollamaBaseUrlIsCustom(): boolean {
+  const stored = readSettings().ollamaBaseUrl;
+  return Boolean(stored && stored !== DEFAULT_OLLAMA_BASE_URL);
+}
+
+/** Set (or clear, with '' → default) the Ollama base URL. */
+export function setOllamaBaseUrl(url: string): void {
+  const settings = readSettings();
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === DEFAULT_OLLAMA_BASE_URL) {
+    delete settings.ollamaBaseUrl;
+    writeSettings(settings);
+    return;
+  }
+  if (!/^https?:\/\//.test(trimmed)) throw new Error('Ollama base URL must start with http:// or https://');
+  settings.ollamaBaseUrl = trimmed.replace(/\/$/, '');
   writeSettings(settings);
 }
 

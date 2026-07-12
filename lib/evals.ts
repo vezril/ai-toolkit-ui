@@ -102,8 +102,8 @@ export interface TestDraft {
 }
 
 export interface ModelDraft {
-  runner: string; // RunnerInfo.key (kind 'cli') or ApiProviderInfo.key (kind 'api')
-  kind?: 'cli' | 'api'; // absent means 'cli' (pre-0.3.0 drafts)
+  runner: string; // RunnerInfo.key ('cli'), ApiProviderInfo.key ('api'), or 'ollama'
+  kind?: 'cli' | 'api' | 'ollama'; // absent means 'cli' (pre-0.3.0 drafts)
   model: string;
   maxTokens?: number;
   enabled: boolean;
@@ -120,9 +120,12 @@ export interface EvalDraft {
   tests: TestDraft[];
 }
 
-function modelKind(m: ModelDraft): 'cli' | 'api' {
+function modelKind(m: ModelDraft): 'cli' | 'api' | 'ollama' {
   return m.kind ?? 'cli';
 }
+
+// Ollama model names are verbatim after the prefix (they contain '/' and ':').
+const OLLAMA_ID = /^ollama:chat:(.+)$/;
 
 function runnerByKey(key: string): Omit<RunnerInfo, 'available'> {
   const r = RUNNER_CATALOG.find((r) => r.key === key);
@@ -271,6 +274,15 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
         if (m.maxTokens) entry.config = { max_tokens: m.maxTokens };
         return entry;
       }
+      if (modelKind(m) === 'ollama') {
+        // Local, free — promptfoo's native ollama provider; model name verbatim.
+        const entry: Record<string, unknown> = {
+          id: `ollama:chat:${m.model}`,
+          label: `Ollama (${m.model})`,
+        };
+        if (m.maxTokens) entry.config = { num_predict: m.maxTokens };
+        return entry;
+      }
       const runner = runnerByKey(m.runner);
       const config: Record<string, unknown> = { model: m.model || runner.defaultModel };
       if (m.maxTokens) config.maxTokens = m.maxTokens;
@@ -288,12 +300,15 @@ export function draftToFiles(draft: EvalDraft): EvalFiles {
   // judge uses the model from its enabled card, falling back to the provider's
   // first suggested model.
   const apiJudge = apiProviderByKey(draft.judge);
-  const judgeProvider = apiJudge
-    ? `${apiJudge.key}:${
-        draft.models.find((m) => modelKind(m) === 'api' && m.runner === apiJudge.key && m.enabled)
-          ?.model || apiJudge.models[0]
-      }`
-    : `exec: node ../${runnerByKey(draft.judge).script}`;
+  const ollamaJudge = draft.judge.startsWith('ollama:');
+  const judgeProvider = ollamaJudge
+    ? draft.judge // the judge value for an Ollama judge is the full ollama:chat:<model> id
+    : apiJudge
+      ? `${apiJudge.key}:${
+          draft.models.find((m) => modelKind(m) === 'api' && m.runner === apiJudge.key && m.enabled)
+            ?.model || apiJudge.models[0]
+        }`
+      : `exec: node ../${runnerByKey(draft.judge).script}`;
 
   const config = {
     description: draft.name,
@@ -361,6 +376,16 @@ export function filesToDraft(configAbsPath: string): EvalDraft {
   const enabledModels: ModelDraft[] = (parsed.providers ?? [])
     .map((p: any): ModelDraft | null => {
       const id = String(p?.id ?? '');
+      const ollamaMatch = id.match(OLLAMA_ID);
+      if (ollamaMatch) {
+        return {
+          runner: 'ollama',
+          kind: 'ollama',
+          model: ollamaMatch[1],
+          maxTokens: typeof p?.config?.num_predict === 'number' ? p.config.num_predict : undefined,
+          enabled: true,
+        };
+      }
       const apiMatch = id.match(API_PROVIDER_ID);
       if (apiMatch) {
         return {
@@ -394,13 +419,17 @@ export function filesToDraft(configAbsPath: string): EvalDraft {
       const found = enabledModels.find((m) => modelKind(m) === 'api' && m.runner === p.key);
       return found ?? { runner: p.key, kind: 'api', model: p.models[0], enabled: false };
     }),
+    // Ollama models are dynamic (no fixed catalog) — surface whatever the config enabled.
+    ...enabledModels.filter((m) => modelKind(m) === 'ollama'),
   ];
 
   const judgeRaw = String(parsed.defaultTest?.options?.provider ?? '');
   const judgeApiMatch = judgeRaw.match(API_PROVIDER_ID);
-  const judge = judgeApiMatch
-    ? judgeApiMatch[1]
-    : (runnerByScript(judgeRaw.replace(/^exec:\s*node\s*/, ''))?.key ?? 'devin');
+  const judge = judgeRaw.startsWith('ollama:')
+    ? judgeRaw
+    : judgeApiMatch
+      ? judgeApiMatch[1]
+      : (runnerByScript(judgeRaw.replace(/^exec:\s*node\s*/, ''))?.key ?? 'devin');
 
   const tests: TestDraft[] = (parsed.tests ?? [])
     .filter((t: unknown) => t && typeof t === 'object')

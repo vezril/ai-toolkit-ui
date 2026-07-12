@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-07-12
+
+### Added
+
+- **Local models (Ollama)**: eval your prompts against models served by a local Ollama
+  instance — free, offline, no key. A "Local models" group in the eval builder lists
+  whatever Ollama is currently serving (discovered live from `/api/tags`, so a freshly
+  `ollama pull`ed model appears without a code change), each usable as a provider or judge.
+  Enabled models serialize to promptfoo's native `ollama:chat:<model>` and round-trip like
+  any provider; an optional max-tokens maps to `num_predict`. When Ollama isn't reachable
+  the group shows a calm "not detected" note. Settings gains an Ollama base URL field
+  (default `http://localhost:11434`) with a live reachability + model-count readout; a
+  non-default URL is injected into runs as `OLLAMA_BASE_URL`. Listing models is a
+  read-only localhost metadata call — inference still happens inside the promptfoo child,
+  so the app's no-direct-model-inference boundary stays intact.
+
+### Follow-ups (documented, not built)
+
+- HuggingFace hub browse + `ollama pull hf.co/…` import.
+- Generic OpenAI-compatible endpoints (LM Studio / llama.cpp / vLLM) via one base-URL field.
+- Relaxed run guardrails for free local models.
+
 ## [0.13.1] - 2026-07-11
 
 ### Changed
@@ -241,6 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.14.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/vezril/ai-toolkit-ui/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.11.0...v0.12.0
