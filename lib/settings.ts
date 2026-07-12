@@ -128,9 +128,9 @@ export function maskedKeys(): MaskedKey[] {
   }));
 }
 
-/** Absolute path of the configured skills directory, or null when unset. */
+/** Absolute path of the configured skills directory: stored ?? SKILLS_DIR env ?? null. */
 export function getSkillsDir(): string | null {
-  return readSettings().skillsDir ?? null;
+  return readSettings().skillsDir ?? process.env.SKILLS_DIR ?? null;
 }
 
 /** Set (or clear, with '') the skills directory. Must be an absolute path to an existing directory. */
@@ -154,9 +154,9 @@ export function setSkillsDir(dir: string): void {
   writeSettings(settings);
 }
 
-/** Absolute path of the configured workflows directory, or null when unset. */
+/** Absolute path of the configured workflows directory: stored ?? WORKFLOWS_DIR env ?? null. */
 export function getWorkflowsDir(): string | null {
-  return readSettings().workflowsDir ?? null;
+  return readSettings().workflowsDir ?? process.env.WORKFLOWS_DIR ?? null;
 }
 
 /** Set (or clear, with '') the workflows directory. Must be an absolute path to an existing directory. */
@@ -180,9 +180,9 @@ export function setWorkflowsDir(dir: string): void {
   writeSettings(settings);
 }
 
-/** Absolute path of the configured agents directory, or null when unset. */
+/** Absolute path of the configured agents directory: stored ?? AGENTS_DIR env ?? null. */
 export function getAgentsDir(): string | null {
-  return readSettings().agentsDir ?? null;
+  return readSettings().agentsDir ?? process.env.AGENTS_DIR ?? null;
 }
 
 /** Set (or clear, with '') the agents directory. Must be an absolute path to an existing directory. */
@@ -208,15 +208,14 @@ export function setAgentsDir(dir: string): void {
 
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
-/** Configured Ollama base URL (defaults to localhost:11434). */
+/** Configured Ollama base URL: stored ?? OLLAMA_BASE_URL env ?? localhost:11434. */
 export function getOllamaBaseUrl(): string {
-  return readSettings().ollamaBaseUrl ?? DEFAULT_OLLAMA_BASE_URL;
+  return readSettings().ollamaBaseUrl ?? process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_BASE_URL;
 }
 
-/** Is a non-default base URL configured (i.e. needs OLLAMA_BASE_URL injection)? */
+/** Is a non-default base URL in effect (i.e. runs need OLLAMA_BASE_URL injected)? */
 export function ollamaBaseUrlIsCustom(): boolean {
-  const stored = readSettings().ollamaBaseUrl;
-  return Boolean(stored && stored !== DEFAULT_OLLAMA_BASE_URL);
+  return getOllamaBaseUrl() !== DEFAULT_OLLAMA_BASE_URL;
 }
 
 /** Set (or clear, with '' → default) the Ollama base URL. */

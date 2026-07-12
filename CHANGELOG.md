@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-07-12
+
+### Added
+
+- **Docker image (self-contained service)**: a published `vezril/ai-toolkit-ui` image that
+  clones `vezril/claude-toolkit` into a persistent `/data` volume on first boot, keeps an
+  empty promptfoo project for builder evals, and persists settings/keys/version-history in
+  the volume. Configured entirely by env — `SKILLS_DIR`/`AGENTS_DIR`/`WORKFLOWS_DIR`,
+  `PROJECT_ROOT`, `OLLAMA_BASE_URL`, `TOOLKIT_REPO`, `GITHUB_TOKEN` (for Ship) — with
+  self-configuring defaults. Ships `docker-compose.yml`, a self-cloning entrypoint, and a
+  `release.yml` that builds on `vX.Y.Z` tags and pushes to Docker Hub (degrading to
+  build-only without `DOCKERHUB_*` secrets). Bundles git + a pinned promptfoo so versioning
+  and eval runs work in-container. **Runs without authentication** — intended for a trusted
+  network only (see the README warning).
+- **Env-resolved roots**: the skills/agents/workflows directories and the Ollama base URL now
+  resolve `stored setting ?? environment variable ?? default`, so the container self-configures
+  and host behavior is unchanged.
+
+### Follow-ups (documented, not built)
+
+- Slim the image (currently ~3.9 GB — promptfoo's global install dominates).
+- Optional `:dev` image on `main` pushes.
+- App-level authentication, if the trusted-network posture ever needs tightening.
+
 ## [0.14.0] - 2026-07-12
 
 ### Added
@@ -263,6 +287,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reasons, and expandable model output.
 - `PROJECT_ROOT` environment variable to point the UI at any promptfoo project.
 
+[0.15.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/vezril/ai-toolkit-ui/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/vezril/ai-toolkit-ui/compare/v0.12.0...v0.13.0
