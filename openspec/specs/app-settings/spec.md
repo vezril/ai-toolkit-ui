@@ -2,9 +2,7 @@
 
 ## Purpose
 System configuration surface and store: provider API keys, component directory roots, and run guardrails, persisted app-level outside any git repo.
-
 ## Requirements
-
 ### Requirement: Settings page for system configuration
 The app SHALL provide a Settings page at `/settings`, reachable from the sidebar's pinned Settings entry, presenting system configuration sections; the first section SHALL be provider API keys.
 
@@ -72,3 +70,11 @@ The Settings page SHALL provide an "Agents directory" field (absolute path to an
 #### Scenario: Setting the agents directory
 - **WHEN** the user saves a valid agents directory path
 - **THEN** `/agents` lists that directory's agents without a restart
+
+### Requirement: Ollama base URL setting
+The Settings page SHALL provide an Ollama base URL field defaulting to `http://localhost:11434`, persisted in `~/.ai-toolkit-ui/settings.json`, with feedback showing whether Ollama is reachable there and how many models it is serving. An empty value SHALL reset to the default.
+
+#### Scenario: Reachability feedback
+- **WHEN** the user opens Settings and Ollama is serving two models at the default URL
+- **THEN** the Ollama field shows the default URL and a "reachable — 2 models" confirmation
+
