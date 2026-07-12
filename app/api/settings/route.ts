@@ -3,17 +3,21 @@ import {
   API_PROVIDERS,
   deleteApiKey,
   getAgentsDir,
+  getOllamaBaseUrl,
   getRunGuardrails,
   getSkillsDir,
   getWorkflowsDir,
   maskedKeys,
   setAgentsDir,
   setApiKey,
+  setOllamaBaseUrl,
   setRunGuardrails,
   setSkillsDir,
   setWorkflowsDir,
   type RunGuardrails,
 } from '@/lib/settings';
+
+import { probeOllama } from '@/lib/ollama';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +40,8 @@ export async function GET() {
     skillsDir: getSkillsDir(),
     workflowsDir: getWorkflowsDir(),
     agentsDir: getAgentsDir(),
+    ollamaBaseUrl: getOllamaBaseUrl(),
+    ollama: await probeOllama(),
     runGuardrails: getRunGuardrails(),
   });
 }
@@ -48,6 +54,7 @@ export async function PUT(req: NextRequest) {
     skillsDir?: string;
     workflowsDir?: string;
     agentsDir?: string;
+    ollamaBaseUrl?: string;
     runGuardrails?: Partial<RunGuardrails>;
   };
   try {
@@ -59,6 +66,10 @@ export async function PUT(req: NextRequest) {
     if (body.runGuardrails !== undefined) {
       setRunGuardrails(body.runGuardrails);
       return NextResponse.json({ ok: true, runGuardrails: getRunGuardrails() });
+    }
+    if (typeof body.ollamaBaseUrl === 'string') {
+      setOllamaBaseUrl(body.ollamaBaseUrl);
+      return NextResponse.json({ ok: true, ollama: await probeOllama() });
     }
     if (typeof body.skillsDir === 'string') {
       setSkillsDir(body.skillsDir);

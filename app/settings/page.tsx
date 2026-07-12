@@ -345,11 +345,83 @@ function ShipCard() {
   );
 }
 
+function OllamaCard({
+  current,
+  probe,
+  onChanged,
+}: {
+  current: string;
+  probe: { reachable: boolean; models: string[] };
+  onChanged: () => void;
+}) {
+  const [value, setValue] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setValue(current), [current]);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ollamaBaseUrl: value }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Ollama (local models)</h3>
+      <p className="dim" style={{ margin: '4px 0 10px', fontSize: 13 }}>
+        Base URL of your local Ollama server. Its models appear in the eval builder's Local
+        models group — free to run, no key.
+      </p>
+      <div className="row">
+        <label className="field grow">
+          <span>Base URL</span>
+          <input value={value} placeholder="http://localhost:11434" spellCheck={false} onChange={(e) => setValue(e.target.value)} />
+        </label>
+        <span className="row" style={{ paddingTop: 18 }}>
+          <button className="primary" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </span>
+      </div>
+      <p className="dim" style={{ fontSize: 13, marginBottom: 0 }}>
+        {probe.reachable ? (
+          <span style={{ color: 'var(--pass)' }}>
+            ✓ reachable — {probe.models.length} model{probe.models.length === 1 ? '' : 's'}
+            {probe.models.length > 0 && `: ${probe.models.join(', ')}`}
+          </span>
+        ) : (
+          <span>🔌 not reachable — is Ollama running?</span>
+        )}
+      </p>
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderKeyState[] | null>(null);
   const [skillsDir, setSkillsDir] = useState<string | null>(null);
   const [workflowsDir, setWorkflowsDir] = useState<string | null>(null);
   const [agentsDir, setAgentsDir] = useState<string | null>(null);
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState<string>('http://localhost:11434');
+  const [ollamaProbe, setOllamaProbe] = useState<{ reachable: boolean; models: string[] }>({
+    reachable: false,
+    models: [],
+  });
   const [guardrails, setGuardrails] = useState<{
     maxConcurrentRuns: number;
     runTimeoutMinutes: number;
@@ -368,6 +440,8 @@ export default function SettingsPage() {
         setSkillsDir(b.skillsDir ?? null);
         setWorkflowsDir(b.workflowsDir ?? null);
         setAgentsDir(b.agentsDir ?? null);
+        setOllamaBaseUrl(b.ollamaBaseUrl ?? 'http://localhost:11434');
+        setOllamaProbe(b.ollama ?? { reachable: false, models: [] });
         setGuardrails(b.runGuardrails ?? null);
       })
       .catch((e) => setError(String(e)));
@@ -438,6 +512,9 @@ export default function SettingsPage() {
         current={agentsDir}
         onChanged={load}
       />
+
+      <h2>Local models</h2>
+      <OllamaCard current={ollamaBaseUrl} probe={ollamaProbe} onChanged={load} />
 
       <h2>Runs</h2>
       {guardrails && <RunGuardrailsCard current={guardrails} onChanged={load} />}

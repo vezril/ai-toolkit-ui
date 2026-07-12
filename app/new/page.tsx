@@ -467,6 +467,11 @@ function BuilderInner() {
 
   const [runners, setRunners] = useState<RunnerInfo[]>([]);
   const [apiProviders, setApiProviders] = useState<ApiProviderOption[]>([]);
+  const [ollama, setOllama] = useState<{ reachable: boolean; models: string[]; baseUrl: string }>({
+    reachable: false,
+    models: [],
+    baseUrl: 'http://localhost:11434',
+  });
   const [skillHints, setSkillHints] = useState<string[]>([]);
   const [draft, setDraft] = useState<EvalDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -483,7 +488,42 @@ function BuilderInner() {
         }
         setRunners(b.runners);
         setApiProviders(b.apiProviders ?? []);
+        const probe = b.ollama ?? { reachable: false, models: [], baseUrl: 'http://localhost:11434' };
+        setOllama(probe);
         setSkillHints(b.skillHints ?? []);
+
+        const defaultModels = () => [
+          ...b.runners.map((r: RunnerInfo) => ({
+            runner: r.key,
+            kind: 'cli' as const,
+            model: r.defaultModel,
+            enabled: r.key === 'devin',
+          })),
+          ...(b.apiProviders ?? []).map((p: ApiProviderOption) => ({
+            runner: p.key,
+            kind: 'api' as const,
+            model: p.models[0],
+            enabled: false,
+          })),
+          ...probe.models.map((m: string) => ({
+            runner: 'ollama',
+            kind: 'ollama' as const,
+            model: m,
+            enabled: false,
+          })),
+        ];
+
+        // Ensure a card exists for every probed Ollama model (loaded drafts only
+        // carry the enabled ones); keep enabled-but-unprobed models too.
+        const withOllama = (models: EvalDraft['models']) => {
+          const present = new Set(
+            models.filter((m) => m.kind === 'ollama').map((m) => m.model),
+          );
+          const extra = probe.models
+            .filter((m: string) => !present.has(m))
+            .map((m: string) => ({ runner: 'ollama', kind: 'ollama' as const, model: m, enabled: false }));
+          return [...models, ...extra];
+        };
 
         // Hydrate from the guided-setup wizard's handoff, if present.
         if (!editConfig && guided) {
@@ -491,22 +531,8 @@ function BuilderInner() {
             const taken = takeGuidedDraft();
             if (taken) {
               const guidedDraft = { ...taken };
-              if (!guidedDraft.models?.length) {
-                guidedDraft.models = [
-                  ...b.runners.map((r: RunnerInfo) => ({
-                    runner: r.key,
-                    kind: 'cli' as const,
-                    model: r.defaultModel,
-                    enabled: r.key === 'devin',
-                  })),
-                  ...(b.apiProviders ?? []).map((p: ApiProviderOption) => ({
-                    runner: p.key,
-                    kind: 'api' as const,
-                    model: p.models[0],
-                    enabled: false,
-                  })),
-                ];
-              }
+              if (!guidedDraft.models?.length) guidedDraft.models = defaultModels();
+              else guidedDraft.models = withOllama(guidedDraft.models);
               setDraft(guidedDraft);
               return;
             }
@@ -516,26 +542,15 @@ function BuilderInner() {
         }
 
         setDraft(
-          b.draft ?? {
-            name: '',
-            prompt: '',
-            models: [
-              ...b.runners.map((r: RunnerInfo) => ({
-                runner: r.key,
-                kind: 'cli' as const,
-                model: r.defaultModel,
-                enabled: r.key === 'devin',
-              })),
-              ...(b.apiProviders ?? []).map((p: ApiProviderOption) => ({
-                runner: p.key,
-                kind: 'api' as const,
-                model: p.models[0],
-                enabled: false,
-              })),
-            ],
-            judge: 'devin',
-            tests: [emptyTest()],
-          },
+          b.draft
+            ? { ...b.draft, models: withOllama(b.draft.models) }
+            : {
+                name: '',
+                prompt: '',
+                models: defaultModels(),
+                judge: 'devin',
+                tests: [emptyTest()],
+              },
         );
       })
       .catch((e) => setError(String(e)));
@@ -573,6 +588,16 @@ function BuilderInner() {
 
   if (error && !draft) return <p className="error-text">{error}</p>;
   if (!draft) return <p className="dim">Loading…</p>;
+
+  // Ollama cards share runner 'ollama', so they key on the model name.
+  function setOllamaModel(modelName: string, patch: Partial<EvalDraft['models'][number]>) {
+    setDraft({
+      ...draft!,
+      models: draft!.models.map((m) =>
+        m.kind === 'ollama' && m.model === modelName ? { ...m, ...patch } : m,
+      ),
+    });
+  }
 
   function setModel(
     kind: 'cli' | 'api',
@@ -794,6 +819,55 @@ function BuilderInner() {
         })}
       </div>
 
+      <h3 className="model-group-title">
+        Local models <span style={{ color: 'var(--pass)', fontWeight: 400 }}>· free</span>
+      </h3>
+      {ollama.reachable && ollama.models.length > 0 ? (
+        <div className="model-grid">
+          {draft.models
+            .filter((m) => m.kind === 'ollama')
+            .map((m) => (
+              <div className={`card model-card ${m.enabled ? 'on' : ''}`} key={m.model}>
+                <div className="row spread">
+                  <h3 title={m.model}>{m.model.length > 24 ? `${m.model.slice(0, 24)}…` : m.model}</h3>
+                  <label className="switch" title={m.enabled ? 'On' : 'Off'}>
+                    <input
+                      type="checkbox"
+                      checked={m.enabled}
+                      onChange={(e) => setOllamaModel(m.model, { enabled: e.target.checked })}
+                    />
+                    <span className="slider" />
+                  </label>
+                </div>
+                <p className="dim" style={{ fontSize: 12, margin: '2px 0' }}>
+                  runs locally via Ollama — free
+                </p>
+                <label className="field" style={{ marginTop: 6 }}>
+                  <span>Max tokens (optional)</span>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Ollama default"
+                    value={m.maxTokens ?? ''}
+                    disabled={!m.enabled}
+                    onChange={(e) =>
+                      setOllamaModel(m.model, {
+                        maxTokens: e.target.value ? Number(e.target.value) : undefined,
+                      })
+                    }
+                  />
+                </label>
+              </div>
+            ))}
+        </div>
+      ) : (
+        <p className="dim" style={{ fontSize: 13 }}>
+          🔌 Ollama not detected at <span className="mono">{ollama.baseUrl}</span>. Start Ollama (or
+          set its URL in <Link href="/settings">Settings</Link>) to eval against local models for
+          free.
+        </p>
+      )}
+
       <div className="card">
         <label className="field">
           <span>Judge — grades the "AI judge" checks</span>
@@ -816,6 +890,15 @@ function BuilderInner() {
                 </option>
               ))}
             </optgroup>
+            {ollama.reachable && ollama.models.length > 0 && (
+              <optgroup label="Local models (free)">
+                {ollama.models.map((m) => (
+                  <option value={`ollama:chat:${m}`} key={m}>
+                    {m}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         {draft.tests.some((t) => t.checks.some((c) => c.kind === 'ab-winner')) &&

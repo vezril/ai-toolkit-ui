@@ -9,6 +9,7 @@ import {
   type EvalDraft,
 } from '@/lib/evals';
 import { skillHintsForConfig } from '@/lib/skillEval';
+import { probeOllama } from '@/lib/ollama';
 import { REPO_ROOT, resolveRepoPath } from '@/lib/paths';
 
 export const dynamic = 'force-dynamic';
@@ -18,13 +19,18 @@ export async function GET(req: NextRequest) {
   const configRel = req.nextUrl.searchParams.get('config');
   try {
     if (!configRel) {
-      return NextResponse.json({ runners: listRunners(), apiProviders: listApiProviders() });
+      return NextResponse.json({
+        runners: listRunners(),
+        apiProviders: listApiProviders(),
+        ollama: await probeOllama(),
+      });
     }
     const abs = resolveRepoPath(configRel);
     return NextResponse.json({
       draft: filesToDraft(abs),
       runners: listRunners(),
       apiProviders: listApiProviders(),
+      ollama: await probeOllama(),
       skillHints: skillHintsForConfig(configRel),
     });
   } catch (err) {
