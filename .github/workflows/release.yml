@@ -15,16 +15,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Derive version
-        id: v
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Derive version and push flag
+        id: cfg
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          if [ -n "$DOCKERHUB_USERNAME" ]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No DOCKERHUB_USERNAME secret — building only, push skipped. Run dockerhub-setup to enable publishing."
+          fi
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Docker Hub login
-        id: login
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        if: steps.cfg.outputs.push == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -34,11 +42,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+          push: ${{ steps.cfg.outputs.push == 'true' }}
           tags: |
-            vezril/ai-toolkit-ui:${{ steps.v.outputs.version }}
+            vezril/ai-toolkit-ui:${{ steps.cfg.outputs.version }}
             vezril/ai-toolkit-ui:latest
-
-      - name: Note when push skipped
-        if: ${{ secrets.DOCKERHUB_USERNAME == '' }}
-        run: echo "::notice::Built ok; push skipped (no DOCKERHUB_USERNAME secret). Run dockerhub-setup to enable publishing."
