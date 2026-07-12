@@ -1,3 +1,4 @@
+[![release](https://github.com/vezril/ai-toolkit-ui/actions/workflows/release.yml/badge.svg)](https://github.com/vezril/ai-toolkit-ui/actions/workflows/release.yml)
 # AI Toolkit UI
 
 A Next.js web interface for **evaluation-driven prompt development (EDD)** with
